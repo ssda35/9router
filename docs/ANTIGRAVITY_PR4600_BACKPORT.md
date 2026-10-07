@@ -96,7 +96,35 @@ root-only permissions. Install only after Linux build succeeds. Restore the
 saved package and state if smoke checks fail. Re-enable the tunnel via the local
 CLI client after restart; fixed public URL is `https://rbt6e5d.abc-tunnel.us`.
 
-Deployment result is recorded separately after verification.
+## Deployment verified (2026-10-07)
+
+- Source backport commit: `ad9adfd1` plus the five original uncommitted changes.
+- Deployment ID: `pr4600-20261007-1791332692391`.
+- Build: `/root/9router-build-pr4600-20261007-1791332692391`.
+- Backup: `/root/9router-backup-pr4600-20261007-1791332692391` (root-only;
+  `global-pkg`, stopped-service `state`, and `9router.service`).
+- Backup pointer: `/root/9router-pr4600-backup-latest`.
+- Artifact SHA256: `584780945d12167b94f8a6a9519d792ae859a1fdc6c1f8e00cfc4d8c3b3cde7c`.
+- Installed provenance: `/usr/lib/node_modules/9router/local-backport-manifest.json`
+  contains exact source hashes, PR head and source commit (no credentials).
+- Linux focused gate: 259 passed, zero failed (existing skipped/todo cases).
+- Root install first hit a network timeout; retry using npm cache succeeded.
+  Linux Vitest install needed `--legacy-peer-deps` as on Windows.
+- No committed lockfile: dependency resolution selected Next.js **16.4.0**,
+  replacing the previous runtime's 16.3.8. Build-time lockfiles remain in the
+  server build directory for reproducibility; they were not committed locally.
+- Service active; local and fixed-public `/api/health` returned HTTP 200.
+- Authenticated CLI catalog and authenticated `/v1/models` list all 8 new
+  `ag/claude-{sonnet,opus}-5-5` base/low/medium/high IDs.
+- Missing-key generation request returned 401 (`requireApiKey=true`), with no
+  upstream generation sent. Existing `--log` retained.
+- SQLite `PRAGMA quick_check`: OK. Entity counts matched stopped-service backup:
+  providerConnections=9, apiKeys=1, combos=0.
+- Tunnel restored at `https://rbt6e5d.abc-tunnel.us`; public health HTTP 200.
+- **No live Claude 5.5 generation was performed**; upstream availability,
+  account access and real quota still need a user generation test.
+- Deployment succeeded without rollback. This documentation update is a
+  subsequent documentation-only commit; it does not change the runtime artifact.
 
 ## When an official version becomes available
 
