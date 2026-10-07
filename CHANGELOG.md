@@ -1,3 +1,9 @@
+# Local backport (2026-10-07; package remains v0.5.95)
+
+- **Antigravity**: backport unmerged PR #4600 at `c4517b3` for Claude Sonnet/Opus 5.5 catalogs, MITM aliases, thinking/pricing and shared session/weekly quota routing.
+- **Tests**: add quota-error-details regression guards; before/after unit comparison found no new pass-to-fail regressions (existing failures remain).
+- **Upstream reconciliation**: see `docs/ANTIGRAVITY_PR4600_BACKPORT.md` before updating to an official release. Existing local stream/abort changes are preserved separately.
+
 # v0.5.95 (2026-10-01)
 
 ## Features
