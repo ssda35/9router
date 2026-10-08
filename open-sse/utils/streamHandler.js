@@ -15,11 +15,10 @@ function getTimeString() {
  * @param {string} options.provider - Provider name
  * @param {string} options.model - Model name
  */
-export function createStreamController({ onDisconnect, onError, log, provider, model, reqTag = "" } = {}) {
+export function createStreamController({ onDisconnect, onError, log, provider, model, reqTag = "", clientSignal = null } = {}) {
   const abortController = new AbortController();
   const startTime = Date.now();
   let disconnected = false;
-  let abortTimeout = null;
 
   // Only abnormal terminations are logged; normal completion is covered by "📊 done".
   // isError uses errorLine (always shown, ignores LOG_LEVEL) so failures survive quiet levels.
@@ -29,6 +28,27 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
     if (emit) emit(reqTag, symbol, `${status} · ${provider}/${model} · ${duration}ms`);
     else console.log(`[${getTimeString()}] ${symbol} ${provider}/${model} · ${status} · ${duration}ms`);
   };
+
+  const doAbort = () => {
+    if (abortController.signal.aborted) return;
+    abortController.abort();
+  };
+
+  if (clientSignal) {
+    if (clientSignal.aborted) {
+      disconnected = true;
+      doAbort();
+    } else {
+      clientSignal.addEventListener("abort", () => {
+        if (!disconnected) {
+          disconnected = true;
+          dbg("CTRL", `${provider}/${model} | clientSignal aborted | dur=${Date.now() - startTime}ms`);
+          doAbort();
+          onDisconnect?.({ reason: "client_aborted", duration: Date.now() - startTime });
+        }
+      }, { once: true });
+    }
+  }
 
   return {
     signal: abortController.signal,
@@ -45,10 +65,8 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
       // socket on every completed request. "📊 done" is the authoritative outcome line.
       dbg("CTRL", `${provider}/${model} | disconnect=${reason} | dur=${Date.now() - startTime}ms`);
 
-      // Delay abort to allow cleanup
-      abortTimeout = setTimeout(() => {
-        abortController.abort();
-      }, 500);
+      // Abort upstream immediately on client disconnect
+      doAbort();
 
       onDisconnect?.({ reason, duration: Date.now() - startTime });
     },
@@ -57,22 +75,12 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
     handleComplete: () => {
       if (disconnected) return;
       disconnected = true;
-
-      if (abortTimeout) {
-        clearTimeout(abortTimeout);
-        abortTimeout = null;
-      }
     },
 
     // Call on error
     handleError: (error) => {
       if (disconnected) return;
       disconnected = true;
-
-      if (abortTimeout) {
-        clearTimeout(abortTimeout);
-        abortTimeout = null;
-      }
 
       if (error.name === "AbortError") {
         logStream("⚡", "ABORTED");
@@ -83,7 +91,7 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
       onError?.(error);
     },
 
-    abort: () => abortController.abort()
+    abort: () => doAbort()
   };
 }
 
