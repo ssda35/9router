@@ -2,8 +2,9 @@
 
 Date: 2026-10-07. User authorized applying, testing and deploying this patch.
 Historical deployment: **local v0.5.95 backport**, not an official release.
-Local source has since been reconciled with official **v0.5.99** (2026-10-09);
-that reconciliation has **not been deployed**. See the reconciliation section below.
+Local source was reconciled with official **v0.5.99** (2026-10-09) and subsequently
+**deployed with separate user approval**. See the reconciliation and v0.5.99
+deployment sections below. No test suite or model/provider probe ran for this update.
 
 ## Source pinned at application time
 
@@ -135,10 +136,10 @@ CLI client after restart; fixed public URL is `https://rbt6e5d.abc-tunnel.us`.
 
 ### Scope and provenance
 
-User authorized **local merge and documentation only**. No tests, provider
-requests, build, dependency installation, push, SSH, deployment or server restart
-are part of this reconciliation. Server is left on the previously deployed
-v0.5.95 backport; historical test/deployment results above do not validate v0.5.99.
+The initial authorization covered **local merge and documentation only**. No tests,
+provider requests, build, installation, push, SSH, deployment or restart occurred
+in that merge step. The user subsequently authorized deployment separately,
+recorded below. Historical v0.5.95 test results do not validate v0.5.99.
 
 - Pinned upstream: `ce4460ef` (v0.5.99, 29 new commits from `a99cf572`).
 - Maintainer integrated PR #4600 contents at `a07ed95b` and closed the PR;
@@ -200,6 +201,46 @@ v0.5.95 backport; historical test/deployment results above do not validate v0.5.
   account restrictions. No credential values are included in these notes.
 - Future deployment requires separate user approval; do not contact production
   or run provider probes while the current restriction remains in effect.
+
+## v0.5.99 deployment (2026-10-09; operational verification only)
+
+- User separately authorized deploying the merged source; the restriction on
+  test suites and model/provider probes remained in effect.
+- Deployed source: `6a809a148feacd9f7cfaa7079d80bc422b7eae96`, official upstream
+  `ce4460ef79382bfddb4aa5fc0ff9f3cb0d5f95a8`, plus preserved stream/abort fixes.
+- Deployment ID: `v0599-20261009-1791496703015`.
+- Build directory: `/root/9router-build-v0599-20261009-1791496703015`.
+- Build reused previous root/CLI lockfiles as dependency-resolution inputs;
+  refreshed build lockfiles remain on the server, not committed locally.
+  Next.js stayed at **16.4.0**, matching the previous deployed runtime.
+- Build HOME/DATA_DIR were isolated from production credentials and DB.
+- Artifact: `9router-0.5.99.tgz`; SHA256:
+  `d8b3613e6e7ff862dbdd265dd592ec10379ec6aba3284f88ccc591c14fd658e1`.
+- Backup: `/root/9router-backup-v0599-20261009-1791496703015`, mode `700`;
+  old global package, CLI symlink, service config and state copied with service
+  stopped. Pointer: `/root/9router-v0599-backup-latest`.
+- Deployed at `2026-10-09T00:09:08+02:00`; installation and operational
+  verification returned exit 0, without rollback.
+- Installed provenance: `/usr/lib/node_modules/9router/local-backport-manifest.json`
+  records source hashes, source commit and verification limitations.
+- Service active; CLI and app package versions 0.5.99. Existing systemd ExecStart
+  retained `--host 0.0.0.0 --port 20128 --no-browser --skip-update --log`.
+- TCP/IP guard hash matches source. Local `/api/health`: 200 with `ok:true`.
+- SQLite quick_check: OK. Entity counts match stopped-service backup:
+  15 provider connections, 1 API key, 0 combos, 0 proxy pools.
+- Existing password/auth/provider overrides/strategies/quota configuration
+  preserved; effective `requireApiKey=true`, `requireLogin=true`. No credential
+  values were printed or recorded in this document.
+- Previously enabled tunnel restored with the same shortId `bt6e5d`;
+  stable URL `https://rbt6e5d.abc-tunnel.us`, public health returned 200.
+- **No test suite, model listing probe, generation request or provider test was
+  run by the deployment procedure.** Health checks do not prove inference or
+  absence of runtime regressions; historical 259-pass results are not a gate.
+  Existing application background behavior was not reconfigured.
+- No Netlify relay was created/enabled; there were zero proxy pools. Security
+  concerns documented above remain. Codex `terminated` is not fixed by this update.
+- This deployment record is a subsequent documentation-only commit; runtime
+  artifact provenance continues to identify source `6a809a14`.
 
 ## Checklist for a future upstream update
 

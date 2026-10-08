@@ -1,4 +1,10 @@
-# Local upstream reconciliation (2026-10-09; v0.5.99, not deployed)
+# Local deployment (2026-10-09; v0.5.99)
+
+- **Deployment**: deployed merged source `6a809a14` to the existing VPS with backup and preserved `--log`, authentication settings and fixed tunnel URL.
+- **Verification**: Linux build and operational health/config/DB checks only; no test suite, model/provider probes or generation requests. Next.js remains 16.4.0. See `docs/ANTIGRAVITY_PR4600_BACKPORT.md` for provenance, backup and limitations.
+- **Security**: Netlify relay not enabled; Codex `terminated` remains unresolved.
+
+# Local upstream reconciliation (2026-10-09; v0.5.99)
 
 - **Upstream**: merge v0.5.99 at `ce4460ef`; adopt official Antigravity catalogs/MITM defaults and PR #4600 implementation integrated at `a07ed95b`, without duplicating the backport.
 - **Streams**: retain the five existing client-abort propagation changes, checkpointed at `5e93e657`, alongside upstream API-key access enforcement.
