@@ -1,7 +1,9 @@
 # Antigravity PR #4600 — local backport / upstream reconciliation
 
 Date: 2026-10-07. User authorized applying, testing and deploying this patch.
-This is a **local backport**, not an official 9Router release. Package version remains 0.5.95.
+Historical deployment: **local v0.5.95 backport**, not an official release.
+Local source has since been reconciled with official **v0.5.99** (2026-10-09);
+that reconciliation has **not been deployed**. See the reconciliation section below.
 
 ## Source pinned at application time
 
@@ -43,9 +45,9 @@ usage allowlist. Opus 5.5 capability changes affect Claude translation too.
 Quota handling resolves model + shared Claude/GPT or Gemini session/weekly limits
 and extracts reset timestamps or RetryInfo durations from HTTP 409/429 details.
 
-## Existing local changes — kept separate and byte-for-byte preserved
+## Existing local changes — preserved separately
 
-These five uncommitted files existed before this backport:
+These five files had uncommitted changes before the original backport:
 - `open-sse/handlers/chatCore.js`
 - `open-sse/utils/streamHandler.js`
 - `src/app/api/v1/responses/compact/route.js`
@@ -53,7 +55,10 @@ These five uncommitted files existed before this backport:
 - `src/sse/handlers/chat.js`
 
 They are not included in the dedicated backport commit, but are included in the
-deployed working-tree source. Do not discard them when updating upstream.
+deployed working-tree source. Before the v0.5.99 merge, their exact diff was
+checkpointed separately in commit `5e93e657`. Their abort behavior is retained
+alongside newer upstream changes; entire file contents need not remain identical.
+Do not discard them when updating upstream.
 
 ## Verification and limitations
 
@@ -126,7 +131,77 @@ CLI client after restart; fixed public URL is `https://rbt6e5d.abc-tunnel.us`.
 - Deployment succeeded without rollback. This documentation update is a
   subsequent documentation-only commit; it does not change the runtime artifact.
 
-## When an official version becomes available
+## Local reconciliation with official v0.5.99 (2026-10-09)
+
+### Scope and provenance
+
+User authorized **local merge and documentation only**. No tests, provider
+requests, build, dependency installation, push, SSH, deployment or server restart
+are part of this reconciliation. Server is left on the previously deployed
+v0.5.95 backport; historical test/deployment results above do not validate v0.5.99.
+
+- Pinned upstream: `ce4460ef` (v0.5.99, 29 new commits from `a99cf572`).
+- Maintainer integrated PR #4600 contents at `a07ed95b` and closed the PR;
+  GitHub's PR API reports `merged:false`, so verify code, not just PR status.
+- Core quota resolver, auth selection, executor error parsing, pricing and PR
+  tests match the backport. Capabilities/thinking files also have newer upstream
+  changes, notably Muse Responses transport, retained by the merge.
+- Do **not** reapply or revert the original PR wholesale. History is retained;
+  runtime follows official upstream, plus the five stream/abort changes.
+- Extra local `tests/unit/antigravity-quota-error-details.test.js` is retained,
+  but was not executed again during this merge.
+- Backup branches: `backup/pre-v0599-local-20261009` (before stream checkpoint)
+  and `backup/pre-v0599-stream-20261009` (checkpoint `5e93e657`).
+- External local backup of the pre-merge dirty diff and file hashes:
+  `C:\Users\PC\AppData\Local\Temp\9router-pre-v0599-z1RCTk`.
+
+### Resolution choices
+
+- `CHANGELOG.md`: retain upstream history and local backport/reconciliation notes.
+- `open-sse/providers/registry/antigravity.js`: use exact v0.5.99 registry.
+- `src/shared/constants/cliTools.js`: use exact v0.5.99 CLI/MITM configuration.
+- Official `24034f69` updates default MITM to `gemini-3.8-flash-medium`, adds
+  Gemini 3.1 Pro High and removes deprecated Gemini 3.5 / 3-flash catalog entries.
+  Review existing combos/custom mappings before any future deployment; this
+  local source merge does not migrate production settings.
+- All five stream/abort files merged automatically once Git handled text line
+  endings; initial temporary CRLF/LF simulation conflicts were false positives.
+- Preserve both `clientSignal` / `request.signal` propagation and upstream
+  API-key access checks, including Gemini native requests and fallback filtering.
+- Local reconciliation does **not** implement a fix for Codex `terminated`.
+  Upstream base executor/stream handler/streaming response code has no relevant
+  socket fix; Codex changes preserve tool strict flags and image usage.
+
+### Security and verification limits
+
+- Static review/checks only; runtime compatibility and regressions are untested
+  in this reconciliation. Do not reuse the historical 259-pass result as a gate.
+- Static inspection found no remaining merge markers and confirmed all 14
+  original PR files match official upstream after line-ending normalization.
+- LSP probes were inconclusive for six files. Auxiliary static rules flagged
+  two unchecked `new URL(request.url)` calls in `src/sse/handlers/chat.js`;
+  both statements are identical in upstream and were not introduced by the
+  local abort changes. They remain existing hardening opportunities.
+- `node --check` passed for 89 changed runtime JavaScript files without
+  executing their modules. Stable patch-id of the five stream/abort changes
+  matches the original checkpoint (`5c2e50df095764dc29accb03ce6885e0f07f3988`).
+- Working-tree `git diff --check` passed. Staged/upstream diff has one inherited
+  trailing blank-line warning at `tests/unit/gemini-contents-normalization.test.js:196`;
+  the test file is kept byte-for-byte identical to upstream, not modified here.
+- Deferred ESLint timed out after 30 seconds; no lint-clean claim is made.
+  Syntax-only checks do not execute application modules or provider calls.
+- Keep API-key authentication and new per-key allow-list enforcement intact.
+  TCP-derived client IP handling in `custom-server.js` remains upstream unchanged.
+- New optional Netlify relay accepts header-supplied destinations without visible
+  relay authentication/destination allow-list in its generated function, and
+  buffers SSE in full. **Do not deploy/enable this relay** without a separate
+  security and streaming review. Merging its source does not create a relay.
+- Antigravity account-risk notice remains; adding model support does not remove
+  account restrictions. No credential values are included in these notes.
+- Future deployment requires separate user approval; do not contact production
+  or run provider probes while the current restriction remains in effect.
+
+## Checklist for a future upstream update
 
 1. Preserve ALL remaining local changes and record the current deployed source
    before updating. Do not blindly stash/pop or overwrite the working tree.
