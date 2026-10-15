@@ -5,8 +5,10 @@ Historical deployment: **local v0.5.95 backport**, not an official release.
 Local source was reconciled with official **v0.5.99** (2026-10-09) and subsequently
 **deployed with separate user approval**. See the reconciliation and v0.5.99
 deployment sections below. No test suite or model/provider probe ran for that update.
-Latest local source is reconciled with **v0.5.104** (2026-10-16), with user approval;
-**v0.5.104 is not deployed**. The last recorded production version remains v0.5.99.
+Latest source is reconciled with **v0.5.104** (2026-10-16) and was subsequently
+**deployed with separate user approval**. Production now runs v0.5.104 from
+`de0d655e`; see the deployment record below. No test suite or model/provider
+probe was initiated by the deployment procedure.
 
 ## Source pinned at application time
 
@@ -244,7 +246,7 @@ recorded below. Historical v0.5.95 test results do not validate v0.5.99.
 - This deployment record is a subsequent documentation-only commit; runtime
   artifact provenance continues to identify source `6a809a14`.
 
-## Local reconciliation with v0.5.104 (2026-10-16; not deployed)
+## Local reconciliation with v0.5.104 (2026-10-16; deployment authorized separately)
 
 ### Approval, provenance and preserved changes
 
@@ -315,6 +317,62 @@ recorded below. Historical v0.5.95 test results do not validate v0.5.99.
   the approved upstream version. No unrelated hardening patch was introduced.
 - Verification is static only; no inference, runtime or regression-clean claim.
   Future deployment and any change to testing restrictions require separate approval.
+
+## v0.5.104 deployment (2026-10-16; operational verification only)
+
+- After approving the local merge, the user separately authorized deployment.
+  The no-test-suite / no-model-provider-probe restriction remained in effect.
+- Deployed source: `de0d655e4c3160461d79e33b4ed72fb5f3ce3a6c` (approved upstream
+  `87a74e1bda3677193c6f71a7e2100c90311f0689` plus preserved local stream changes).
+- Deployment/build ID: `v05104-20261016-1792100515418`.
+  Build directory: `/root/9router-build-v05104-20261016-1792100515418`.
+- Previous v0.5.99 root/CLI lockfiles were reused as resolution inputs;
+  refreshed lockfiles remain in the server build directory. Next.js stayed at
+  **16.4.0**. Build HOME/DATA_DIR were isolated from production state/credentials.
+- Artifact: `9router-0.5.104.tgz`, SHA256:
+  `3494f5d034c4770d8d17392bf926fd85f9c37bb097e4b462bc6da960cc3d5191`.
+- Preflight found one previously opted-in Codex reactive auto-ping account,
+  zero enabled schedules, zero proxy pools, and no exact retired Codex model
+  references in the settings/combos/connections/pools examined. External client
+  configurations were not inspected. No auto-ping preference was changed.
+- First attempt passed version/local-health/DB/config checks but rolled back
+  to v0.5.99 after the tunnel-enable CLI call failed its readiness gate. The
+  previous service and public health were verified recovered before retry.
+- The CLI client has a 30-second request timeout. On retry, enable again returned
+  a timeout, but bounded tunnel-status/public-health polling confirmed the same
+  stable tunnel became healthy. Only temporary deployment-helper scripts changed;
+  no application source was patched to handle this operational wait.
+- Second attempt used the **same artifact**, with a fresh stopped-state backup:
+  `/root/9router-backup-v05104-20261016-1792100515418-retry2`, mode `700`.
+  It includes old package, CLI symlink, service unit and state copied after stop.
+  Pointer: `/root/9router-v05104-backup-latest`.
+- Initial attempt/rollback evidence remains in
+  `/root/9router-backup-v05104-20261016-1792100515418` and corresponding install log.
+- Successful completion: `2026-10-15T23:53:47+02:00` (2026-10-16 in local UTC+7).
+  Retry install exited 0; service active, MainPID `2214463` at verification.
+- CLI/app versions 0.5.104; installed provenance at
+  `/usr/lib/node_modules/9router/local-backport-manifest.json` records source
+  hashes, commit and verification limits. TCP-derived client-IP guard hash matches.
+- Existing ExecStart is unchanged:
+  `--host 0.0.0.0 --port 20128 --no-browser --skip-update --log`.
+- SQLite quick_check OK. Entity identities matched the retry stopped backup:
+  20 provider connections, 2 API keys, 0 combos and 0 proxy pools. API-key/combo/
+  proxy-pool rows and all existing settings (except ephemeral tunnelUrl) matched.
+- Effective `requireApiKey=true` and `requireLogin=true` preserved. No credential
+  values are recorded here. A second API key appeared before the stopped backup;
+  comparisons use the actual stopped snapshot, not the earlier preflight count.
+- Local and fixed-public `/api/health` returned 200 with `ok:true`. Previously
+  enabled tunnel restored at `https://rbt6e5d.abc-tunnel.us`, same shortId `bt6e5d`.
+- **No test suite, model-list probe, generation request or provider test was
+  initiated by the deployment procedure.** Existing application background behavior
+  and user traffic continued; token-refresh warnings observed in logs are not
+  provider probes initiated by this procedure. No new schedule/provider/relay
+  was configured or enabled.
+- Health/config checks do not establish inference success or no regressions.
+  Codex `terminated`, existing auto-ping strictProxy and Nous/Netlify security
+  caveats remain as documented above.
+- This subsequent documentation-only update is not part of the runtime artifact;
+  deployed source provenance remains `de0d655e`.
 
 ## Checklist for a future upstream update
 

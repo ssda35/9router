@@ -1,4 +1,10 @@
-# Local upstream reconciliation (2026-10-16; v0.5.104, not deployed)
+# Local deployment (2026-10-16; v0.5.104)
+
+- **Deployment**: deployed merged source `de0d655e`; retained Next.js 16.4.0, `--log`, authentication/access configuration and fixed tunnel URL. No test suite or model/provider probes were initiated.
+- **Recovery**: initial tunnel readiness gate triggered rollback; retry of the same artifact succeeded after accommodating the CLI's 30-second timeout with bounded status/health checks. Fresh root-only backup retained.
+- **Verification/security**: local/public health, DB integrity and entity/config preservation confirmed; no inference/regression-clean claim, no new provider/schedule/relay enabled. See `docs/ANTIGRAVITY_PR4600_BACKPORT.md` for artifact/backup provenance and residual risks.
+
+# Local upstream reconciliation (2026-10-16; v0.5.104, initially local-only)
 
 - **Upstream**: merge approved tag `v0.5.104` at `87a74e1b`; retain the five client-abort propagation changes and the extra quota-error-details test without reapplying PR #4600.
 - **Scope**: local source and documentation only; no tests, provider calls, build, dependency installation, push or server operations. Production was last deployed as v0.5.99.
