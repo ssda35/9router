@@ -4,7 +4,9 @@ Date: 2026-10-07. User authorized applying, testing and deploying this patch.
 Historical deployment: **local v0.5.95 backport**, not an official release.
 Local source was reconciled with official **v0.5.99** (2026-10-09) and subsequently
 **deployed with separate user approval**. See the reconciliation and v0.5.99
-deployment sections below. No test suite or model/provider probe ran for this update.
+deployment sections below. No test suite or model/provider probe ran for that update.
+Latest local source is reconciled with **v0.5.104** (2026-10-16), with user approval;
+**v0.5.104 is not deployed**. The last recorded production version remains v0.5.99.
 
 ## Source pinned at application time
 
@@ -241,6 +243,78 @@ recorded below. Historical v0.5.95 test results do not validate v0.5.99.
   concerns documented above remain. Codex `terminated` is not fixed by this update.
 - This deployment record is a subsequent documentation-only commit; runtime
   artifact provenance continues to identify source `6a809a14`.
+
+## Local reconciliation with v0.5.104 (2026-10-16; not deployed)
+
+### Approval, provenance and preserved changes
+
+- User reviewed the proposed changes and explicitly approved **local merge only**.
+  No tests, provider requests, build, dependency installation, push, SSH, deployment
+  or server restart are authorized by this approval or performed in this step.
+- Pinned tag: `v0.5.104`, commit `87a74e1bda3677193c6f71a7e2100c90311f0689`.
+  There are 38 upstream commits / 140 changed files since official v0.5.99.
+- Pre-merge local HEAD: `21ccf59448eee07adc64ee8e3f4a6b53643b1938`.
+  Recovery branch: `backup/pre-v05104-local-20261016`.
+- Only `CHANGELOG.md` conflicted; retain both upstream release history and local
+  backport/deployment/reconciliation notes. No upstream runtime file is manually
+  replaced or reverted, and the generated provider-registry index is not hand-edited.
+- Retain all five stream/abort changes checkpointed at `5e93e657`, plus unchanged
+  local `tests/unit/antigravity-quota-error-details.test.js`. Do not reapply PR #4600.
+- Historical test/deployment results in this document do not validate v0.5.104.
+  Production remains the last recorded v0.5.99 deployment; no server was contacted
+  during this review/merge to re-check its current state.
+
+### Reviewed behavior changes and security caveats
+
+- Antigravity IDE fingerprint changes from 2.11.0 to 2.22.0, adds
+  `gemini-4-argon-high`, and supplies the model to Gemini contents normalization.
+  Claude 5.5 mappings and the existing shared-family quota resolver are retained.
+- Codex removes `gpt-5.5`, `gpt-5.5-review`, `gpt-5.5-image` and `gpt-5.3-image`
+  from the catalog. CLI preset/default auto-ping model changes to `gpt-6.1-sol`.
+  Review saved client/model/combo settings before a future deployment; do not
+  silently migrate accounts or production preferences as part of a source merge.
+- Codex executor, base executor and streaming handler have no relevant socket fix.
+  This merge does **not** establish a fix for the observed `terminated` failure.
+- Forced-SSE non-stream Claude requests now produce Claude-shaped JSON. Combo
+  fallback detects unusable JSON 2xx responses on non-final model seats, not
+  partial SSE replay; fallback can still incur additional upstream calls.
+- Cursor's strict-proxy HTTP/2 guard fails closed if the transport cannot honor
+  required proxying. Long-history empty-turn recovery defaults to one tail-only
+  retry at 80 messages; reduced history can change context available to the model.
+- Auto-ping schedules are opt-in (`enabled:true`); schedules independently start
+  the scheduler, support timezone/DST, and have a 30-minute catch-up window.
+  Review existing reactive ping settings and explicit schedule timezone before
+  deployment. No schedule/provider is enabled by this merge.
+- The auto-ping path still sets `strictProxy:false` as in v0.5.99; the Cursor
+  proxy fix is not a guarantee that every background path obeys strict proxying.
+- The per-key token-quota / pattern-access feature was added then reverted before
+  the tag. No net changes to the reviewed key ACL/API-key repo/schema migrations;
+  do not advertise those reverted features as available in this release.
+- New optional Nous OAuth uses fixed HTTPS portal/inference endpoints and stores
+  refreshed agent API keys. Its warning paths include upstream error text: review
+  redaction before enabling it; this is a possible sensitive-log risk, not proof
+  of an observed credential leak. No new provider was configured in this merge.
+- Authentication/TCP client-IP guard and existing ACL behavior are preserved.
+  Netlify relay concerns above remain; no relay is created/enabled by merging code.
+- Dependency declarations are unchanged except package versions; no packages were
+  installed. Local installed dependencies may therefore lag source requirements.
+
+### Static verification of this merge
+
+- `node --check` passed for 75 changed runtime JavaScript files; it parses only,
+  without executing application modules, tests or provider requests.
+- No merge markers remain. Working-tree and staged `git diff --check` passed.
+- Stable patch-id of the retained five-file stream/abort delta matches the original
+  checkpoint: `5c2e50df095764dc29accb03ce6885e0f07f3988`.
+- The only local differences from the approved tag are those five files,
+  `CHANGELOG.md`, this document and the unchanged local quota-error-details test.
+- Both root and CLI package versions are 0.5.104.
+- Active LSP probes did not establish a clean result for six files. Auxiliary
+  static rules reported two unchecked `new URL(url)` calls in Cursor at lines
+  487 and 547; both calls existed in v0.5.99 and the merged Cursor file is exactly
+  the approved upstream version. No unrelated hardening patch was introduced.
+- Verification is static only; no inference, runtime or regression-clean claim.
+  Future deployment and any change to testing restrictions require separate approval.
 
 ## Checklist for a future upstream update
 
