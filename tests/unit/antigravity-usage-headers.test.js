@@ -18,7 +18,7 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
 describe("Antigravity usage headers", () => {
   beforeEach(() => proxyAwareFetch.mockClear());
 
-  it("uses the official IDE user agent and omits router-only source headers", async () => {
+  it("uses the captured Hub user agent and omits router-only source headers", async () => {
     const { getAntigravityUsage } = await import("../../open-sse/services/usage/google.js");
 
     await getAntigravityUsage("access-token", {});
@@ -26,7 +26,7 @@ describe("Antigravity usage headers", () => {
     // loadCodeAssist + fetchAvailableModels + retrieveUserQuotaSummary
     expect(proxyAwareFetch).toHaveBeenCalledTimes(3);
     for (const [, options] of proxyAwareFetch.mock.calls) {
-      expect(options.headers["User-Agent"]).toBe("antigravity/ide/2.22.0 darwin/arm64");
+      expect(options.headers["User-Agent"]).toBe("antigravity/hub/2.23.1 (aidev_client; os_type=windows; arch=amd64; cl=998881661)");
       expect(options.headers).not.toHaveProperty("x-request-source");
     }
   });

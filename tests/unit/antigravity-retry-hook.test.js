@@ -67,15 +67,15 @@ describe("antigravity computeRetryDelay hook (D3)", () => {
     expect(out.request.tools[0].functionDeclarations.map(fn => fn.name)).toEqual(["read_file"]);
   });
 
-  it("registry uses the daily IDE cloudcode host and user agent", () => {
+  it("registry uses the daily cloudcode host and captured Hub user agent", () => {
     expect(antigravity.transport.baseUrls).toEqual(["https://daily-cloudcode-pa.googleapis.com"]);
-    expect(antigravity.transport.headers["User-Agent"]).toBe("antigravity/ide/2.22.0 darwin/arm64");
+    expect(antigravity.transport.headers["User-Agent"]).toBe("antigravity/hub/2.23.1 (aidev_client; os_type=windows; arch=amd64; cl=998881661)");
   });
 
-  it("buildHeaders matches official IDE stream headers", () => {
+  it("buildHeaders uses the captured Hub user agent without extra stream headers", () => {
     ag._lastSessionId = "sess-123";
     const h = ag.buildHeaders({ accessToken: "tok" }, true);
-    expect(h["User-Agent"]).toBe("antigravity/ide/2.22.0 darwin/arm64");
+    expect(h["User-Agent"]).toBe("antigravity/hub/2.23.1 (aidev_client; os_type=windows; arch=amd64; cl=998881661)");
     expect(h["Content-Type"]).toBe("application/json");
     expect(h["Authorization"]).toBe("Bearer tok");
     expect(h).not.toHaveProperty("X-Machine-Session-Id");
