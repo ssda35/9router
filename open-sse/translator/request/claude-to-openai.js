@@ -4,6 +4,7 @@ import { adjustMaxTokens } from "../formats/maxTokens.js";
 import { encodeDataUri } from "../concerns/image.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import { collapseTextParts } from "../concerns/message.js";
+import { resolveClaudeCodexServiceTier } from "../../config/codexServiceTier.js";
 
 function stripAnthropicBillingHeader(text) {
   if (typeof text !== "string") return "";
@@ -11,7 +12,18 @@ function stripAnthropicBillingHeader(text) {
 }
 
 // Convert Claude request to OpenAI format
-export function claudeToOpenAIRequest(model, body, stream) {
+export function claudeToOpenAIRequest(model, body, stream, credentials = null) {
+  // Codex speed tier for /v1/messages: kept off the OpenAI intermediate (other
+  // OpenAI-compatible upstreams may reject service_tier); the Codex executor
+  // reads it from credentials, bound to this request's rawHeaders object so a
+  // reused credentials object can never leak the tier into a later request.
+  if (credentials) {
+    credentials._claudeCodexServiceTier = {
+      tier: resolveClaudeCodexServiceTier(body, credentials.rawHeaders),
+      rawHeaders: credentials.rawHeaders,
+    };
+  }
+
   const result = {
     model: model,
     messages: [],

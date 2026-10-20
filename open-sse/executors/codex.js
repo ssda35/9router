@@ -13,6 +13,7 @@ import { DEFAULT_RETRY_CONFIG, HTTP_STATUS, resolveRetryEntry } from "../config/
 import { dbg } from "../utils/debugLog.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 import { stripCodexUnsupportedPatterns } from "../utils/codexToolSchema.js";
+import { CODEX_ALLOWED_SERVICE_TIERS, normalizeCodexServiceTier } from "../config/codexServiceTier.js";
 
 // SSE error patterns inside 200-OK bodies. Some retry same account first; capacity rotates accounts.
 const CODEX_SSE_RETRY_PATTERNS = ["server_is_overloaded", "service_unavailable_error"];
@@ -549,8 +550,21 @@ export class CodexExecutor extends BaseExecutor {
     delete body.safety_identifier; // Droid CLI sends this but Codex doesn't support it
     delete body.previous_response_id; // store=false → backend can't resolve previous resp; avoid 404
 
-    if (body.service_tier === "fast") body.service_tier = "priority";
-    if (body.service_tier && body.service_tier !== "priority") delete body.service_tier;
+    // /v1/messages (Claude source): tier resolved by claude-to-openai from the
+    // x-codex-service-tier header / service_tier / speed. Only honored for the
+    // same request (rawHeaders identity). null = explicit Standard.
+    const claudeTier = credentials?._claudeCodexServiceTier;
+    if (claudeTier && claudeTier.rawHeaders === credentials.rawHeaders && claudeTier.tier !== undefined) {
+      if (claudeTier.tier) body.service_tier = claudeTier.tier;
+      else delete body.service_tier;
+    }
+
+    // Normalize (fast → priority) and keep only tiers the Codex backend accepts.
+    if (body.service_tier !== undefined) {
+      const tier = normalizeCodexServiceTier(body.service_tier);
+      if (tier && CODEX_ALLOWED_SERVICE_TIERS.has(tier)) body.service_tier = tier;
+      else delete body.service_tier;
+    }
 
     // Final allowlist filter — strip any unknown field that could trigger upstream "routing_unsupported"
     for (const k of Object.keys(body)) {
