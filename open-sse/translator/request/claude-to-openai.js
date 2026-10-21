@@ -195,6 +195,26 @@ function convertClaudeMessage(msg) {
                 url: encodeDataUri(block.source.media_type, block.source.data)
               }
             });
+          } else if (
+            block.source?.type === "url" &&
+            typeof block.source.url === "string" &&
+            (block.source.url.startsWith("data:") || /^https?:\/\//i.test(block.source.url))
+          ) {
+            parts.push({
+              type: OPENAI_BLOCK.IMAGE_URL,
+              image_url: { url: block.source.url }
+            });
+          }
+          break;
+
+        case CLAUDE_BLOCK.DOCUMENT:
+          if (block.source?.type === "base64" && block.source.data) {
+            parts.push({
+              type: OPENAI_BLOCK.FILE,
+              file: {
+                file_data: encodeDataUri(block.source.media_type || "application/pdf", block.source.data)
+              }
+            });
           }
           break;
 
@@ -220,6 +240,16 @@ function convertClaudeMessage(msg) {
                 resultImages.push({
                   type: OPENAI_BLOCK.IMAGE_URL,
                   image_url: { url: encodeDataUri(c.source.media_type, c.source.data) }
+                });
+              } else if (
+                c?.type === CLAUDE_BLOCK.IMAGE &&
+                c.source?.type === "url" &&
+                typeof c.source.url === "string" &&
+                (c.source.url.startsWith("data:") || /^https?:\/\//i.test(c.source.url))
+              ) {
+                resultImages.push({
+                  type: OPENAI_BLOCK.IMAGE_URL,
+                  image_url: { url: c.source.url }
                 });
               }
             }

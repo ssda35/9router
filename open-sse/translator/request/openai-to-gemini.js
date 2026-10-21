@@ -375,6 +375,40 @@ function wrapInCloudCodeEnvelope(model, geminiCLI, credentials = null, isAntigra
   return envelope;
 }
 
+// Convert a Claude image/document block into a Gemini/Cloud Code part (null when unusable).
+function claudeImageToGeminiPart(block) {
+  const source = block?.source;
+  if (!source || typeof source !== "object") return null;
+  const defaultMime = block.type === CLAUDE_BLOCK.DOCUMENT ? "application/pdf" : "image/png";
+  if (source.type === "base64" && typeof source.data === "string" && source.data) {
+    return {
+      inlineData: {
+        mimeType: source.media_type || defaultMime,
+        data: source.data,
+      },
+    };
+  }
+  if (source.type === "url" && typeof source.url === "string" && source.url) {
+    if (source.url.startsWith("data:")) {
+      const comma = source.url.indexOf(",");
+      if (comma === -1) return null;
+      const mimeType = source.url.slice(5, comma).split(";")[0] || defaultMime;
+      const data = source.url.slice(comma + 1);
+      if (!data) return null;
+      return { inlineData: { mimeType, data } };
+    }
+    if (/^https?:\/\//i.test(source.url)) {
+      return {
+        fileData: {
+          fileUri: source.url,
+          mimeType: source.media_type || (block.type === CLAUDE_BLOCK.DOCUMENT ? "application/pdf" : "image/*"),
+        },
+      };
+    }
+  }
+  return null;
+}
+
 // Wrap Claude format in Cloud Code envelope for Antigravity
 function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = null, signature = DEFAULT_THINKING_AG_SIGNATURE) {
   const projectId = credentials?.projectId || generateProjectId();
@@ -420,6 +454,9 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
         for (const block of msg.content) {
           if (block.type === CLAUDE_BLOCK.TEXT) {
             parts.push({ text: block.text });
+          } else if (block.type === CLAUDE_BLOCK.IMAGE || block.type === CLAUDE_BLOCK.DOCUMENT) {
+            const mediaPart = claudeImageToGeminiPart(block);
+            if (mediaPart) parts.push(mediaPart);
           } else if (block.type === CLAUDE_BLOCK.TOOL_USE) {
             const cachedSig = block.id ? getGeminiThoughtSignatureSync(block.id, credentials?._clientSessionId, model) : null;
             const callSig = cachedSig || (!firstToolUseSeen ? signature : undefined);
@@ -438,8 +475,20 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
             parts.push(part);
           } else if (block.type === CLAUDE_BLOCK.TOOL_RESULT) {
             let content = block.content;
+            const resultMediaParts = [];
             if (Array.isArray(content)) {
-              content = content.map(c => c.type === CLAUDE_BLOCK.TEXT ? c.text : JSON.stringify(c)).join("\n");
+              content = content
+                .map((c) => {
+                  if (c?.type === CLAUDE_BLOCK.TEXT) return c.text;
+                  if (c?.type === CLAUDE_BLOCK.IMAGE || c?.type === CLAUDE_BLOCK.DOCUMENT) {
+                    const mediaPart = claudeImageToGeminiPart(c);
+                    if (mediaPart) resultMediaParts.push(mediaPart);
+                    return "";
+                  }
+                  return JSON.stringify(c);
+                })
+                .filter(Boolean)
+                .join("\n");
             }
             // Resolve the original tool name from the id — Gemini requires it to match the functionCall name
             const resolvedName = toolUseIdToName[block.tool_use_id]
@@ -452,6 +501,9 @@ function wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials = nu
                 response: { result: tryParseJSON(content) || content }
               }
             });
+            if (resultMediaParts.length > 0) {
+              parts.push(...resultMediaParts);
+            }
           }
         }
       } else if (typeof msg.content === "string") {

@@ -1,3 +1,10 @@
+# Local change (2026-10-21; v0.5.104): preserve images and PDFs for Antigravity Claude models
+
+- **Fix**: `wrapInCloudCodeEnvelopeForClaude` (`open-sse/translator/request/openai-to-gemini.js`) now converts `CLAUDE_BLOCK.IMAGE` and `CLAUDE_BLOCK.DOCUMENT` blocks in user turns and inside `tool_result` into Gemini `inlineData` / `fileData` parts instead of dropping them or stringifying base64 into `functionResponse.response.result`.
+- **Translator**: `claudeToOpenAIRequest` (`open-sse/translator/request/claude-to-openai.js`) now also forwards `source.type === "url"` (`data:` and `http(s)://`) images and base64 `CLAUDE_BLOCK.DOCUMENT` blocks.
+- **Security**: only `data:`, `http://` and `https://` URLs are accepted; unsafe URI schemes (`file://`, etc.) are ignored.
+- **Tests**: `tests/unit/antigravity-claude-image.test.js` (13/13 pass).
+
 # Local change (2026-10-21; v0.5.104): 128k maxOutputTokens for Antigravity Claude models
 
 - **Feature**: raise `maxOutputTokens` ceiling and default on the Antigravity Claude path (`claude-*`) to `128000` to match the official Antigravity catalog (`claude-opus-5-5-*`, `claude-sonnet-5-5-*`), while keeping `MAX_ANTIGRAVITY_OUTPUT_TOKENS = 64000` for non-Claude Antigravity models (Gemini 4 Argon, Gemini 3.x Flash, etc.).
