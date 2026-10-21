@@ -1,3 +1,16 @@
+# Local change (2026-10-21; v0.5.104): 128k maxOutputTokens for Antigravity Claude models
+
+- **Feature**: raise `maxOutputTokens` ceiling and default on the Antigravity Claude path (`claude-*`) to `128000` to match the official Antigravity catalog (`claude-opus-5-5-*`, `claude-sonnet-5-5-*`), while keeping `MAX_ANTIGRAVITY_OUTPUT_TOKENS = 64000` for non-Claude Antigravity models (Gemini 4 Argon, Gemini 3.x Flash, etc.).
+- **Translator**: pass `modelCeiling = 128000` into `adjustMaxTokens` in `claude-to-openai.js` for Claude models so `/v1/messages` requests with `max_tokens: 128000` are not pre-clamped to `64000`.
+- **Tests**: updated `tests/unit/antigravity-claude-5-5.test.js` and `tests/unit/antigravity-retry-hook.test.js` (41/41 focused tests pass).
+
+# Local change (2026-10-20; v0.5.104): Codex speed tier for /v1/messages
+
+- **Feature**: `/v1/messages` (Claude format) → Codex can now select the Codex speed tier via header `x-codex-service-tier` (highest precedence), body `service_tier` (Codex values only) or Claude Code `speed: "fast"`. `fast`/`priority` → `priority`, `ultrafast` → `ultrafast`, `standard`/`default`/`off` → Standard. Anthropic-only values (`auto`, `standard_only`) are ignored. Default stays Standard.
+- **Scope**: the tier is never placed on the OpenAI intermediate body, so other OpenAI-compatible upstreams are unaffected; it is bound to the request's raw headers so a reused credentials object cannot leak it. Codex executor now also forwards `ultrafast` for all sources (previously stripped); `flex`/`default`/`auto` remain stripped.
+- **Security**: any API-key holder can request Fast (2.5× subscription usage) or Ultrafast (8×) via the header; Ultrafast requires an eligible plan.
+- **Tests**: `tests/unit/codex-claude-service-tier.test.js` (23); full suite fail set identical before/after (92, zero pass→fail).
+
 # Local deployment (2026-10-16; v0.5.104)
 
 - **Deployment**: deployed merged source `de0d655e`; retained Next.js 16.4.0, `--log`, authentication/access configuration and fixed tunnel URL. No test suite or model/provider probes were initiated.

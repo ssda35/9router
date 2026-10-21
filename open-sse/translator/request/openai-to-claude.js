@@ -324,9 +324,15 @@ function convertOpenAIToolChoice(choice) {
   return { type: "auto" };
 }
 
+const ANTIGRAVITY_CLAUDE_MAX_OUTPUT_TOKENS = 128000;
+
 // OpenAI -> Claude format for Antigravity (without system prompt modifications)
 function openaiToClaudeRequestForAntigravity(model, body, stream) {
   const result = openaiToClaudeRequest(model, body, stream);
+  result.max_tokens = adjustMaxTokens(
+    { ...body, max_tokens: body.max_tokens || ANTIGRAVITY_CLAUDE_MAX_OUTPUT_TOKENS },
+    ANTIGRAVITY_CLAUDE_MAX_OUTPUT_TOKENS
+  );
 
   // Remove Claude Code system prompt, keep only user's system messages
   if (result.system && Array.isArray(result.system)) {

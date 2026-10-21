@@ -20,6 +20,7 @@ function sanitizeFunctionName(name) {
 const MAX_RETRY_AFTER_MS = 10000;
 const ANTIGRAVITY_TRANSIENT_RETRY_MAX_MS = 15000;
 const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 64000;
+const MAX_ANTIGRAVITY_CLAUDE_OUTPUT_TOKENS = 128000;
 const ANTIGRAVITY_IDE_REQUEST_ID_RE = /^agent\/[^/]+\/\d+\/[^/]+\/\d+$/;
 
 const ANTIGRAVITY_TRANSIENT_ERROR_PATTERNS = [
@@ -308,9 +309,13 @@ export class AntigravityExecutor extends BaseExecutor {
       }
     }
 
+    const effectiveModel = String(body.model || model || "").toLowerCase();
+    const maxOutputTokensCap = effectiveModel.includes("claude")
+      ? MAX_ANTIGRAVITY_CLAUDE_OUTPUT_TOKENS
+      : MAX_ANTIGRAVITY_OUTPUT_TOKENS;
     const generationConfig = { ...(requestWithoutTools.generationConfig || {}) };
-    if (generationConfig.maxOutputTokens > MAX_ANTIGRAVITY_OUTPUT_TOKENS) {
-      generationConfig.maxOutputTokens = MAX_ANTIGRAVITY_OUTPUT_TOKENS;
+    if (generationConfig.maxOutputTokens > maxOutputTokensCap) {
+      generationConfig.maxOutputTokens = maxOutputTokensCap;
     }
 
     const transformedRequest = {

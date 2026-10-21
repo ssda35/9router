@@ -30,9 +30,10 @@ export function claudeToOpenAIRequest(model, body, stream, credentials = null) {
     stream: stream
   };
 
-  // Max tokens
+  // Max tokens (allow 128k ceiling for Claude models so Antigravity Claude 5.5 isn't pre-clamped to 64k)
   if (body.max_tokens) {
-    result.max_tokens = adjustMaxTokens(body);
+    const modelCeiling = String(model || "").toLowerCase().includes("claude") ? 128000 : undefined;
+    result.max_tokens = adjustMaxTokens(body, modelCeiling);
   }
 
   // Temperature

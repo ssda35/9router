@@ -4,6 +4,9 @@ import { getModelsByProviderId, getModelUpstreamId } from "../../open-sse/config
 import { stripThinkingSuffix } from "../../open-sse/translator/concerns/thinkingUnified.js";
 import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 import { getPricingForModel } from "../../open-sse/providers/pricing.js";
+import { AntigravityExecutor } from "../../open-sse/executors/antigravity.js";
+import { claudeToOpenAIRequest } from "../../open-sse/translator/request/claude-to-openai.js";
+import { openaiToAntigravityRequest } from "../../open-sse/translator/request/openai-to-gemini.js";
 import { MITM_TOOLS } from "../../src/shared/constants/cliTools.js";
 
 const require = createRequire(import.meta.url);
@@ -109,5 +112,29 @@ describe("Antigravity Claude 5.5 models (#4555, #4548)", () => {
     // Legacy fallback still works
     expect(matchModel("claude-sonnet-4.6")).toBe("claude-sonnet-4-6");
     expect(matchModel("claude-opus-4.6")).toBe("claude-opus-4-6-thinking");
+  });
+
+  it("uses 128000 maxOutputTokens for Antigravity Claude models across /v1/messages and /v1/chat/completions", () => {
+    const executor = new AntigravityExecutor();
+    for (const model of ["claude-opus-5-5-high", "claude-sonnet-5-5-high"]) {
+      // /v1/messages with max_tokens: 128000
+      const openai = claudeToOpenAIRequest(model, {
+        model,
+        max_tokens: 128000,
+        messages: [{ role: "user", content: "hi" }],
+      }, true);
+      expect(openai.max_tokens).toBe(128000);
+
+      const agEnvelope = openaiToAntigravityRequest(model, openai, true, { projectId: "p1", connectionId: "c1" });
+      const finalBody = executor.transformRequest(model, agEnvelope, true, { projectId: "p1", connectionId: "c1" });
+      expect(finalBody.request.generationConfig.maxOutputTokens).toBe(128000);
+
+      // /v1/chat/completions without explicit max_tokens defaults to 128000 for Antigravity Claude
+      const defaultEnvelope = openaiToAntigravityRequest(model, {
+        messages: [{ role: "user", content: "hi" }],
+      }, true, { projectId: "p1", connectionId: "c1" });
+      const defaultFinal = executor.transformRequest(model, defaultEnvelope, true, { projectId: "p1", connectionId: "c1" });
+      expect(defaultFinal.request.generationConfig.maxOutputTokens).toBe(128000);
+    }
   });
 });

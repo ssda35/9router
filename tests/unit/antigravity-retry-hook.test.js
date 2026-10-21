@@ -83,8 +83,8 @@ describe("antigravity computeRetryDelay hook (D3)", () => {
     expect(h).not.toHaveProperty("Accept");
   });
 
-  it("transforms chat requests with official IDE requestId shape and 64000 token cap", () => {
-    const out = ag.transformRequest("claude-opus-4-6-thinking", {
+  it("transforms chat requests with official IDE requestId shape and 64000 token cap for non-Claude models", () => {
+    const out = ag.transformRequest("gemini-4-argon-high", {
       request: {
         contents: [
           { role: "user", parts: [{ text: "hi" }] },
@@ -97,5 +97,23 @@ describe("antigravity computeRetryDelay hook (D3)", () => {
 
     expect(out.requestId).toMatch(/^agent\/[0-9a-f-]{36}\/\d{13}\/[0-9a-f-]{36}\/\d+$/);
     expect(out.request.generationConfig.maxOutputTokens).toBe(64000);
+  });
+
+  it("allows up to 128000 maxOutputTokens for Antigravity Claude models", () => {
+    const withinCap = ag.transformRequest("claude-opus-5-5-high", {
+      request: {
+        contents: [{ role: "user", parts: [{ text: "hi" }] }],
+        generationConfig: { maxOutputTokens: 128000 },
+      },
+    }, true, { projectId: "project-1", connectionId: "conn-1" });
+    expect(withinCap.request.generationConfig.maxOutputTokens).toBe(128000);
+
+    const overCap = ag.transformRequest("claude-sonnet-5-5-high", {
+      request: {
+        contents: [{ role: "user", parts: [{ text: "hi" }] }],
+        generationConfig: { maxOutputTokens: 200000 },
+      },
+    }, true, { projectId: "project-1", connectionId: "conn-1" });
+    expect(overCap.request.generationConfig.maxOutputTokens).toBe(128000);
   });
 });
