@@ -20,7 +20,8 @@ ARG NPM_REGISTRY
 RUN apk add --no-cache python3 make g++ linux-headers
 
 COPY package.json ./
-RUN --mount=type=cache,target=/root/.npm \
+# Railway requires cache mount ids prefixed with s/<service-id>-; plain docker treats it as a cache key.
+RUN --mount=type=cache,id=s/0d83497f-55b8-407e-bb5a-a6d6d4c56a37-/root/.npm,target=/root/.npm \
     npm install \
       --registry="${NPM_REGISTRY}" \
       --fetch-retries=5 \
