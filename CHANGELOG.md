@@ -1,3 +1,13 @@
+# Local upstream reconciliation (2026-10-28; v0.5.111, local-only)
+
+- **Upstream**: merge `v0.5.111` (`3a978a63`) while retaining local Hub 2.23.1 Windows UA, Antigravity Claude 128K cap/default, explicit-tier guard, image/PDF translation, Codex service tier, client abort propagation and Railway configuration.
+- **Media preservation**: repair upstream `convertToolResultContent` so image conversion does not discard mixed PDF documents or native block metadata; add regression tests alongside upstream #5125.
+- **Excluded**: do not include custom Codex Full `tools: []` hotfix `7611ac45`, per user decision.
+- **Compatibility/security**: retain upstream OpenCode TLS/runtime and environment fingerprint behavior unchanged (runtime installation can occur; missing runtime throws rather than falling back; configured proxies bypass impersonation; environment paths can be sent upstream). Codex image models now use `gpt-6-sol-image`; upstream removes old `gpt-5.6-*-image` aliases. These remain deployment considerations, not verified provider integrations.
+- **Verification**: focused tests 190/190 and targeted ESLint pass. Full offline comparison in isolated snapshots: baseline 4098 passed / 38 failed / 98 pending; merged 4181 passed / 37 failed / 98 pending, with no new failures or pass-to-fail cases in this run. The suite is not fully green; count differences are not evidence of live provider correctness. LSP checks were inconclusive.
+- **Build**: Next.js 16.4.2 webpack build succeeded using separate output and test data, allowing Google Fonts downloads but blocking provider network access. Warnings remain for lazy-runtime dynamic resolution and standalone file tracing outside the project; this check is not a deployment-ready artifact certification.
+- **Scope**: local integration only; no live provider calls, push or deployment.
+
 # Local upstream reconciliation (2026-10-23; v0.5.109, local-only)
 
 - **Upstream**: merge tag `v0.5.109` (`f39d8f07`). Kept local Antigravity Hub 2.23.1 Windows fingerprint instead of upstream `hub/2.24.0 darwin/arm64` (unverified locally); merged `handleChatCore` signature with upstream `customPromptEnabled`/`customPrompt` while keeping `clientSignal` abort propagation.
@@ -55,6 +65,29 @@
 - **Antigravity**: backported then-unmerged PR #4600 at `c4517b3` for Claude Sonnet/Opus 5.5 catalogs, MITM aliases, thinking/pricing and shared session/weekly quota routing.
 - **Tests**: added quota-error-details regression guards; the historical before/after comparison found no new pass-to-fail regressions (existing failures remained). These results do not validate the later v0.5.99 merge.
 - **Upstream reconciliation**: the backport is now superseded in local source by the official implementation; preserve its history and the extra quota-error-details tests.
+
+# v0.5.111 (2026-10-26)
+
+## Features
+- **Ollama**: add `ollama-local` TTS provider serving the Phonon family (15 tags, 38 preset voices), normalizing the requested format to wav/pcm, falling back to an installed tag and the `default` voice, and wrapping raw PCM in a WAV header so the dashboard can preview it
+- **Ollama**: add `ollama-local` embedding adapter for `/v1/embeddings`, normalizing a saved host that carries a `/v1` or `/v1/embeddings` suffix and sending a bearer token only when an API key is configured; catalog the 14 embedding model families with their dimensions
+- **Providers**: add Runcrate (`rc`) — OpenAI-compatible upstream serving DeepSeek, GLM, Qwen and gpt-oss models, validated through `GET /api/v1/billing/balance` because the public `/v1/models` answers 200 for any key
+- **CommandCode**: add Kimi K3.1 Pro to the catalog with the upstream id kept verbatim, riding the existing NDJSON `/alpha/generate` lane
+- **OpenCode Go**: add Kimi K3.1 Pro on the chat lane with vision/video input, 1,048,576 context, 131,072 max output and dedicated K3 pricing
+
+## Fixes
+- **CLI Tools**: stop the Pi card from resetting every `contextWindow`/`maxTokens` in `~/.pi/agent/models.json` on Apply, add per-model context-window and max-output selectors, and sanitize corrupt cap values instead of writing them back
+- **CLI Tools**: treat `name === id` as unset on Apply so a hand-edited Pi model label is no longer overwritten
+- **OpenCode**: normalize a caller tool that collides with the OpenCode fingerprint in place (keeping the caller's name and adopting the fingerprint schema) instead of aliasing it to `<name>_client` and restoring it on the response (#4971, #5011)
+- **OpenCode Free**: restore the free tier by sending the TLS ClientHello the upstream accepts (via optional `wreq-js`, fail-open to native fetch), minting session ids from the current time instead of a sha256 digest, and always pairing the CLI `<env>` system marker with a declared tool list
+- **OpenCode Free**: cap the published context window of `oc/deepseek-v4.1-flash-free` at 330k so clients compact before the backend's limit (#5097)
+- **Translator**: convert `image_url` parts inside `role:"tool"` messages to Claude image blocks instead of forwarding them verbatim and failing with a 400 (#5125)
+- **Headroom**: compress only text leaves and copy them back into the original fields, preserving native Claude documents, tool-use ids/inputs, tool results, signed thinking, citations and cache controls (#4670)
+- **DeepSeek**: send `deepseek-flash` upstream for `deepseek-v4.1-flash`, whose catalog id the API rejects (#4940)
+- **Claude**: keep adaptive thinking for Haiku 5.5 and downgrade to `enabled/10000` only below major version 5 (#5183)
+- **Thinking**: keep `reasoning_effort: max` for GPT-5.6 / GPT-6 served through OpenAI Compatible nodes instead of clamping it to `xhigh` (#5186)
+- **Codex Image**: drive the `image_generation` tool call from `gpt-6-sol` instead of the legacy `gpt-5.6-terra` host, and add `cx/gpt-6-sol-image`; drop the `gpt-5.6-{sol,terra,luna}-image` aliases they supersede
+- **Capabilities**: match `*gpt-6*image*` before the generic `gpt-6` family pattern so `gpt-6-sol-image` resolves as an image model instead of inheriting the chat caps (vision/reasoning/1.05M window) and losing `imageOutput`
 
 # v0.5.109 (2026-10-23)
 
