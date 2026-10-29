@@ -1,3 +1,14 @@
+# Local upstream reconciliation (2026-10-29; v0.5.112, local-only)
+
+- **Upstream**: integrate `v0.5.112` (`1fe586bb`): GPT-6.1 Terra Lite, lazy runtime and Docker packaging fixes, non-streaming SSE errors, Copilot Claude thinking, provider headers and optional MiniMax lease/Nace support.
+- **Preserved**: local client abort propagation, Hub 2.23.1 Windows UA, Antigravity Claude 128K cap/default, explicit-tier guard, image/PDF and mixed tool-result preservation, Codex service tier and Railway configuration. Custom hotfix `7611ac45` remains excluded.
+- **Schema safety**: enforce Gemini protobuf constraints on actual schema nodes, not caller property-name maps; retain arguments named `items`, `properties` and `required` while cleaning their nested schemas.
+- **Lease cancellation**: let a cancelled request stop waiting for a MiniMax shared lease without cancelling other callers' broker operation; check cancellation again before upstream execution. The broker operation itself remains bounded by its timeout.
+- **Docker**: retain the Railway service-scoped npm cache id for the new lazy dependency install. Upstream unversioned lazy-package installation remains a reproducibility consideration; Chromium is not bundled by playwright-core.
+- **Tests**: focused suites 187/187 passed; targeted ESLint passed. Offline isolated full-suite comparison: baseline 4180 passed / 38 failed / 98 pending; final candidate 4300 passed / 30 failed / 98 pending. No new failures or pass-to-fail cases in the final run; inherited failures remain. All 26 abort/cancel/disconnect assertions passed. Normalize CodeBuddy's new volatile IDs and update only its two header snapshots; runtime identity behavior remains upstream's. LSP confirmed two files clean and was inconclusive on three others.
+- **Build**: Next.js 16.4.2 webpack build succeeded with 151 static pages, separate build output/test data and provider network blocked (Google Fonts allowed). Prior lazy-runtime compiler warnings did not recur; 8832 outside-root standalone tracing paths remain a packaging caveat. Docker image/native runtime and real broker/provider behavior were not live-tested.
+- **Scope**: local integration only; no live provider/broker calls, dependency installation, push or deployment. Optional new providers/auth modes are not activated.
+
 # Local upstream reconciliation (2026-10-28; v0.5.111, local-only)
 
 - **Upstream**: merge `v0.5.111` (`3a978a63`) while retaining local Hub 2.23.1 Windows UA, Antigravity Claude 128K cap/default, explicit-tier guard, image/PDF translation, Codex service tier, client abort propagation and Railway configuration.
@@ -66,6 +77,24 @@
 - **Tests**: added quota-error-details regression guards; the historical before/after comparison found no new pass-to-fail regressions (existing failures remained). These results do not validate the later v0.5.99 merge.
 - **Upstream reconciliation**: the backport is now superseded in local source by the official implementation; preserve its history and the extra quota-error-details tests.
 
+# v0.5.112 (2026-10-28)
+
+## Features
+- **MiniMax Code**: add lease auth mode that rides the desktop app's sign-in through a named-pipe/unix-socket broker (length-prefixed JSON protocol, broker-owned token refresh — no refresh token held locally since MiniMax tokens are single-use), with a dashboard lease button and usage attribution
+- **Nace Drex**: add the `nace` provider to the System One lane with `drex`, `drex-v2.0` and `drex-max`
+- **CommandCode**: align request headers with the official CLI 1.88.0 through a shared `commandCodeHeaders` service
+- **Codex**: add `gpt-6.1-terra` (responses-lite lane, GPT-6-Lite thinking levels)
+
+## Fixes
+- **NVIDIA NIM**: normalize assistant `reasoning` aliases to `reasoning_content` before forwarding, avoiding NIM's duplicate-field 400 when clients send both.
+- **Lazy Runtime**: make the on-demand wreq-js/playwright-core installer work inside published builds — fetch `createRequire` at runtime instead of the bundler-stubbed static import, mark the runtime-dir `import()` calls `webpackIgnore` so file URLs are not captured as bundle chunks, anchor npm to the runtime dir with a minimal `package.json`, and wipe + reinstall once when npm exits 0 on a partially-extracted package (#5245)
+- **Docker**: bake `wreq-js` and `playwright-core` into the runner image's `node_modules` (builder-stage isolated install) so OpenCode Free resolves without runtime downloads (#5245)
+- **Chat**: surface upstream SSE `error` frames in non-streaming responses — answer with the upstream status (4xx/5xx) and message instead of swallowing them into a generic 502
+- **Translator**: enforce Gemini protobuf type predicates on schema `items` and `properties` instead of forwarding shapes the upstream would silently mistype
+- **Providers**: keep full `LLM|id|secret` (Muse) key strings opaque in bulk-add instead of splitting on the first pipe into name/key, auto-naming them LLM 1, LLM 2, …
+- **DeepSeek**: replace the vendored PoW hash implementation with a noble-hashes keccak port (DeepSeekHashV1, SHA3-256 with round 0 skipped), shrinking `deepseek-pow-hash.js` by ~430 lines
+- **GitHub Copilot**: apply Claude 5.5 thinking rules to Copilot's dotted model ids (`claude-opus-5.5*`, `claude-sonnet-5.5`) and make `claude-haiku-5.5` adaptive-only on its Anthropic-native shim, whose budget-shaped thinking comes back 400
+
 # v0.5.111 (2026-10-26)
 
 ## Features
@@ -102,6 +131,8 @@
 - **STT**: add Codex OAuth transcription provider (`cx/transcribe`), reusing existing Codex OAuth chat connections with 24 kHz PCM16 WAV conversion and bounded private temp files (#5074)
 
 ## Fixes
+- **CodeBuddy**: send the plugin's request/conversation id headers (`X-Request-ID`, `X-Conversation-ID`, `X-Conversation-Request-ID`, `X-Conversation-Message-ID`) on CN and intl chat requests — without them the gateway's channel check rejects every call with `400 / 11128 "request illegal"`
+- **CodeBuddy**: align the `#5024` backoff tests with the current request-scoped contract — `checkFallbackError` reports `requestScoped: true` for unclassified 4xx, and a combo now advances past a malformed CodeBuddy body instead of stopping on the first member
 - **Combos**: advance past request-scoped 4xx rejections (validation, unsupported parameter, context overflow) instead of terminating combo (#5057)
 - **Combos**: fall through to next member when streaming response returns HTTP 200 but produces zero content frames (#ca7b540)
 - **Combos**: try next model when provider returns HTTP 400 for insufficient credits or balance too low (#4713)
