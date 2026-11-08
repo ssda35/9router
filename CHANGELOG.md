@@ -1,3 +1,12 @@
+# Local upstream reconciliation (2026-11-08; v0.5.116, local-only)
+
+- **Upstream**: integrate `v0.5.116` (`1339107e`, 29 commits): undici 8 transport with keep-alive TTL, stale-socket fresh retry and X25519 TLS curve (`undici` kept external in the Next build), separate Gemini 4 Argon quota, thinking intent on OpenAI tool-result turns, Claude cache markers for DashScope, Gemini tool-result/MIME fixes, Codex image updates, CommandCode/OpenCode Go/Kiro/CodeBuddy fixes.
+- **Conflicts**: `claude-to-openai.js` keeps the local Codex service-tier binding and adopts upstream `opts` (cache-control) signature; `CHANGELOG.md` keeps both histories.
+- **Preserved**: client abort propagation files, Hub 2.23.1 Windows UA, Antigravity Claude 128K, explicit-tier guard, image/PDF preservation, Gemini schema fix, MiniMax lease cancellation, Dockerfile/Railway config (unchanged vs local master). Argon quota detection (`includes("argon")`) matches local high/medium/low IDs.
+- **Tests (offline, network-guarded)**: baseline 4295 passed / 35 failed; candidate 4465 passed / 51 failed; 0 new tests failing; 3 fixed. 19 pass-to-fail all upstream-introduced (tests mock `globalThis.fetch` while upstream `proxyFetch` now calls undici `fetch` directly) and fail identically on pure upstream. Abort smoke via new `proxyAwareFetch`: `AbortError` and socket closed, pre-aborted signal rejected.
+- **Build**: `next build --webpack` succeeded (152 static pages); standalone output ships `undici` 8.12.4. Requires Node >= 22.19 (Docker `node:22.23.4-alpine` OK).
+- **Scope**: local only; no push, deploy or live provider request.
+
 # Local upstream reconciliation (2026-10-29; v0.5.112, local-only)
 
 - **Upstream**: integrate `v0.5.112` (`1fe586bb`): GPT-6.1 Terra Lite, lazy runtime and Docker packaging fixes, non-streaming SSE errors, Copilot Claude thinking, provider headers and optional MiniMax lease/Nace support.
@@ -76,6 +85,39 @@
 - **Antigravity**: backported then-unmerged PR #4600 at `c4517b3` for Claude Sonnet/Opus 5.5 catalogs, MITM aliases, thinking/pricing and shared session/weekly quota routing.
 - **Tests**: added quota-error-details regression guards; the historical before/after comparison found no new pass-to-fail regressions (existing failures remained). These results do not validate the later v0.5.99 merge.
 - **Upstream reconciliation**: the backport is now superseded in local source by the official implementation; preserve its history and the extra quota-error-details tests.
+
+# v0.5.116 (2026-11-08)
+
+## Features
+- **CommandCode**: align data bridge with official CLI v1.88.5 and add credential auto-import
+- **Antigravity**: track and display a separate Gemini 4 Argon weekly/session quota
+- **Codex Image**: add GPT Image 2.6 models (`gpt-image-2.6-flare`, `gpt-image-2.6-sunburst`)
+- **SenseNova**: add `sensenova-6.8-flash` and `glm-5.3`
+
+## Fixes
+- **Transport**: claude provider survives DPI-shaped networks (happy-eyeballs, undici 8, configurable TLS curve)
+- **Lazy Runtime**: fix lost named exports when loading CJS deps from the runtime dir
+- **OpenCode Go**: send Claude reasoning on the Messages transport
+- **Codex Image**: use native OAuth image generation safely
+- **Thinking**: keep thinking config on OpenAI tool-result turns (#5171)
+- **OpenCode Free**: alias "terminal" tool names the free tier 429-rejects (#5319)
+- **TTS**: list public voices without dashboard self-fetch auth (#1551)
+- **Translator**: retain Claude cache markers for DashScope targets (#2069)
+- **CLI**: launcher startup ~2.5x faster via PID-file process handling
+- **Gemini**: send concrete MIME for remote images instead of `image/*`
+- **Translator**: keep all Gemini tool results and follow-up parts (#2393)
+- **Codex Image**: drop `reasoning.effort` on tool requests, surface real upstream errors
+- **CLI**: ship `deepseek-pow-hash.js` next to the PoW worker (#5460)
+- **Web Fetch**: forward the selected output format to Jina and Tavily (#2239)
+- **Kiro**: stop splicing unserved regions into service hostnames; add `KIRO_INTEGRITY_GATE=off`
+- **Thinking**: preserve explicit DeepSeek thinking budgets on compat nodes (#5108)
+- **Tray**: report a tray that never started instead of claiming success
+- **Fetch**: stop reusing dead keep-alive sockets silently dropped by upstream edges
+- **CodeBuddy**: preserve client system prompts and sanitize CLI agent identity (intl WAF)
+- **OpenCode Go**: use current inference endpoints (`/zen/go/v1` retired)
+- **CLI Tools**: Add All Active Models now includes no-auth, alias and custom models (#5449)
+- **Runtime**: pass `--global=false` so npm hooks can't create stray global installs (#5443)
+- **Dedupe**: drop `tool_reference` blocks naming tools stripped by MCP dedupe (z.ai 400)
 
 # v0.5.112 (2026-10-28)
 
