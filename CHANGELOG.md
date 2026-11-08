@@ -1,3 +1,10 @@
+# Local change (2026-11-08; v0.5.116): defer upstream undici 8 transport
+
+- **Deferred**: upstream transport commits `736be957` (DPI/X25519 TLS, happy eyeballs, `undici` external in Next build) and `963787f7` (4s keep-alive TTL, stale-socket fresh replay, fresh socket on 502/network retry). `proxyFetch.js`, `executors/base.js`, `config/runtimeConfig.js` and `next.config.mjs` are back to the pre-merge local versions; `undici` stays `^7.30.1`; the CLI keeps `--dns-result-order=ipv4first`. Their two transport test files are removed with them.
+- **Kept from those commits**: Claude OAuth refresh in provider test utils via `proxyAwareFetch`, and the `stream_options` strip for non-streaming OpenAI-compatible requests (`executors/default.js`).
+- **Re-enable later**: revert this commit, then reinstall dependencies (undici 8 needs Node >= 22.19).
+- **Tests (offline)**: two full runs 4462/39 and 4469/32 (baseline 4295/35); 0 consistent pass-to-fail across runs, 0 new failing tests; 7 one-off failures in run 1 reproduce identically on baseline in isolation (Windows EBUSY/mock timing). Abort/cancel/disconnect 26/26; abort smoke `AbortError` + socket closed. `next build --webpack` succeeded (152 static pages).
+
 # Local upstream reconciliation (2026-11-08; v0.5.116, local-only)
 
 - **Upstream**: integrate `v0.5.116` (`1339107e`, 29 commits): undici 8 transport with keep-alive TTL, stale-socket fresh retry and X25519 TLS curve (`undici` kept external in the Next build), separate Gemini 4 Argon quota, thinking intent on OpenAI tool-result turns, Claude cache markers for DashScope, Gemini tool-result/MIME fixes, Codex image updates, CommandCode/OpenCode Go/Kiro/CodeBuddy fixes.
