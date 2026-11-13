@@ -172,6 +172,11 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
         'gemini-4-argon-high',
         'gemini-4-argon-medium',
         'gemini-4-argon-low',
+        'gemini-4-hydrogen-xhigh',
+        'gemini-4-hydrogen-high',
+        'gemini-4-hydrogen-medium',
+        'gemini-4-hydrogen-low',
+        'gemini-pro-orchestrator-g1-pro',
         'gemini-3.8-flash-high',
         'gemini-3.8-flash-medium',
         'gemini-3.8-flash-low',
@@ -242,8 +247,8 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
       // If every model in a family is locked/exhausted (remainingPercentage === 0)
       // until a future reset time, update the 5h session row (not the weekly row).
       const entries = Object.entries(quotas);
-      const argonModels = entries.filter(([k]) => k.startsWith("gemini-") && k.includes("argon"));
-      const geminiModels = entries.filter(([k]) => k.startsWith("gemini-") && !k.includes("image") && !k.includes("argon"));
+      const argonModels = entries.filter(([k]) => k.startsWith("gemini-") && (k.includes("argon") || k.includes("orchestrator")));
+      const geminiModels = entries.filter(([k]) => k.startsWith("gemini-") && !k.includes("image") && !k.includes("argon") && !k.includes("orchestrator"));
       const claudeModels = entries.filter(([k]) => k.startsWith("claude-"));
 
       if (weeklyQuotas.gemini_argon_session && argonModels.length > 0) {

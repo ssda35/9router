@@ -58,7 +58,7 @@ export function getAntigravityModelFamily(model) {
   if (clean.startsWith("claude-") || clean.startsWith("gpt-") || clean === "claude") {
     return "claude_gpt";
   }
-  if ((clean.startsWith("gemini-") && clean.includes("argon")) || clean === "gemini_argon") {
+  if ((clean.startsWith("gemini-") && (clean.includes("argon") || clean.includes("orchestrator"))) || clean === "gemini_argon") {
     return "gemini_argon";
   }
   if ((clean.startsWith("gemini-") && !clean.includes("image")) || clean === "gemini") {
@@ -90,6 +90,9 @@ export function getAntigravityModelQuota(quotas, model) {
   // 2. Direct tier aliases if base model was passed
   if (cleanModel === "gemini-4-argon" && quotas["gemini-4-argon-high"]) {
     candidates.push(quotas["gemini-4-argon-high"]);
+  }
+  if (cleanModel === "gemini-4-hydrogen" && quotas["gemini-4-hydrogen-high"]) {
+    candidates.push(quotas["gemini-4-hydrogen-high"]);
   }
   if (cleanModel === "claude-sonnet-5-5" && quotas["claude-sonnet-5-5-high"]) {
     candidates.push(quotas["claude-sonnet-5-5-high"]);

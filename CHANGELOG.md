@@ -1,3 +1,9 @@
+# Local change (2026-11-13; v0.5.116, local-only): Antigravity 2.31.2 + Gemini 4 Hydrogen & Orchestrator
+
+- **Antigravity fingerprint**: update `ANTIGRAVITY_IDE_VERSION` to `2.31.2` and `ANTIGRAVITY_IDE_USER_AGENT` to `antigravity/hub/2.31.2 (aidev_client; os_type=windows; arch=amd64; cl=1019359392)`.
+- **Models**: add `gemini-4-hydrogen-xhigh`, `gemini-4-hydrogen-high`, `gemini-4-hydrogen-medium`, `gemini-4-hydrogen-low`, `gemini-4-hydrogen`, and `gemini-pro-orchestrator-g1-pro` (`Orchestrator (Argon)`).
+- **Capabilities & thinking**: support `xhigh` tier for `gemini-4-hydrogen*` (`maxOutput = 262144`), raise Antigravity executor and Claude-to-OpenAI `maxOutputTokens` ceiling for Hydrogen to `262144`, and align `gemini-pro-orchestrator-g1-pro` with Argon capabilities (`maxOutput = 65536`) and `gemini_argon` quota tracking.
+
 # Local upstream reconciliation (2026-11-08; v0.5.116, local-only)
 
 - **Upstream**: integrate `v0.5.116` (`1339107e`, 29 commits): undici 8 transport with keep-alive TTL, stale-socket fresh retry and X25519 TLS curve (`undici` kept external in the Next build), separate Gemini 4 Argon quota, thinking intent on OpenAI tool-result turns, Claude cache markers for DashScope, Gemini tool-result/MIME fixes, Codex image updates, CommandCode/OpenCode Go/Kiro/CodeBuddy fixes.

@@ -100,22 +100,32 @@ export function getModelUpstreamId(aliasOrId, modelId, clientBody = null) {
   const baseId = suffix ? modelId.slice(0, sufMatch.index).trim() : modelId;
   const models = PROVIDER_MODELS[aliasOrId];
 
-  // Resolve requested thinking level from suffix or client request body
+  // Resolve requested thinking level from suffix or client request body.
+  // Preserve xhigh when a dedicated -xhigh variant exists (e.g. gemini-4-hydrogen-xhigh);
+  // otherwise collapse xhigh/max to high for families whose top tier is -high.
+  const hasXhighVariant = typeof baseId === "string" && !!findModel(models, `${baseId}-xhigh`, aliasOrId);
+  const normalizeTier = (value) => {
+    if (value === "xhigh" || value === "max") return hasXhighVariant ? "xhigh" : "high";
+    if (value === "minimal") return "low";
+    return value;
+  };
   const rawSuffix = suffix ? suffix.slice(1, -1).trim().toLowerCase() : "";
-  let tier = rawSuffix === "xhigh" || rawSuffix === "max" ? "high" : rawSuffix === "minimal" ? "low" : rawSuffix;
+  let tier = normalizeTier(rawSuffix);
   // Local guard: a model id that already names its tier (e.g. gemini-4-argon-high,
-  // claude-opus-5-5-high) keeps that tier; the client's effort only picks a tier for
-  // unadorned ids. An explicit "(level)" suffix is still honored.
-  const baseHasTier = typeof baseId === "string" && /-(?:low|medium|high)$/i.test(baseId);
+  // gemini-4-hydrogen-xhigh, claude-opus-5-5-high) keeps that tier; the client's effort
+  // only picks a tier for unadorned ids. An explicit "(level)" suffix is still honored.
+  const baseHasTier = typeof baseId === "string" && /-(?:low|medium|high|xhigh)$/i.test(baseId);
   if (!tier && !baseHasTier && clientBody && typeof clientBody === "object") {
     const rawEffort = clientBody.reasoning_effort || clientBody.output_config?.effort || (typeof clientBody.reasoning === "object" ? clientBody.reasoning?.effort : null);
     if (typeof rawEffort === "string" && rawEffort) {
-      const v = rawEffort.toLowerCase().trim();
-      tier = v === "xhigh" || v === "max" ? "high" : v === "minimal" ? "low" : v;
+      tier = normalizeTier(rawEffort.toLowerCase().trim());
     } else if (clientBody.thinking && typeof clientBody.thinking === "object") {
       const b = Number(clientBody.thinking.budget_tokens);
       if (Number.isFinite(b) && b > 0) {
-        tier = b > 16384 ? "high" : b <= 4096 ? "low" : "medium";
+        if (b >= 32768 && hasXhighVariant) tier = "xhigh";
+        else if (b > 16384) tier = "high";
+        else if (b <= 4096) tier = "low";
+        else tier = "medium";
       }
     }
   }

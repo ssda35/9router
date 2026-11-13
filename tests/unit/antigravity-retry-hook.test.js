@@ -69,13 +69,13 @@ describe("antigravity computeRetryDelay hook (D3)", () => {
 
   it("registry uses the daily cloudcode host and captured Hub user agent", () => {
     expect(antigravity.transport.baseUrls).toEqual(["https://daily-cloudcode-pa.googleapis.com"]);
-    expect(antigravity.transport.headers["User-Agent"]).toBe("antigravity/hub/2.23.1 (aidev_client; os_type=windows; arch=amd64; cl=998881661)");
+    expect(antigravity.transport.headers["User-Agent"]).toBe("antigravity/hub/2.31.2 (aidev_client; os_type=windows; arch=amd64; cl=1019359392)");
   });
 
   it("buildHeaders uses the captured Hub user agent without extra stream headers", () => {
     ag._lastSessionId = "sess-123";
     const h = ag.buildHeaders({ accessToken: "tok" }, true);
-    expect(h["User-Agent"]).toBe("antigravity/hub/2.23.1 (aidev_client; os_type=windows; arch=amd64; cl=998881661)");
+    expect(h["User-Agent"]).toBe("antigravity/hub/2.31.2 (aidev_client; os_type=windows; arch=amd64; cl=1019359392)");
     expect(h["Content-Type"]).toBe("application/json");
     expect(h["Authorization"]).toBe("Bearer tok");
     expect(h).not.toHaveProperty("X-Machine-Session-Id");
@@ -115,5 +115,23 @@ describe("antigravity computeRetryDelay hook (D3)", () => {
       },
     }, true, { projectId: "project-1", connectionId: "conn-1" });
     expect(overCap.request.generationConfig.maxOutputTokens).toBe(128000);
+  });
+
+  it("allows up to 262144 maxOutputTokens for Antigravity Gemini 4 Hydrogen models", () => {
+    const withinCap = ag.transformRequest("gemini-4-hydrogen-xhigh", {
+      request: {
+        contents: [{ role: "user", parts: [{ text: "hi" }] }],
+        generationConfig: { maxOutputTokens: 262144 },
+      },
+    }, true, { projectId: "project-1", connectionId: "conn-1" });
+    expect(withinCap.request.generationConfig.maxOutputTokens).toBe(262144);
+
+    const overCap = ag.transformRequest("gemini-4-hydrogen-high", {
+      request: {
+        contents: [{ role: "user", parts: [{ text: "hi" }] }],
+        generationConfig: { maxOutputTokens: 300000 },
+      },
+    }, true, { projectId: "project-1", connectionId: "conn-1" });
+    expect(overCap.request.generationConfig.maxOutputTokens).toBe(262144);
   });
 });

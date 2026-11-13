@@ -499,6 +499,10 @@ export const PATTERN_CAPABILITIES = [
 
   // ── Gemini (all 2.0+ multimodal + google_search grounding, 1M ctx) ─
   { pattern: "*gemini*image*",  caps: { vision: true, imageOutput: true, contextWindow: 1048576 } },
+  // Gemini 4 Hydrogen: LOW/MEDIUM/HIGH/XHIGH, 262144 maxOutputTokens per Antigravity 2.31.2 catalog.
+  { pattern: "*gemini-4-hydrogen*", caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 262144 } },
+  // Orchestrator (Argon): Argon-backed orchestrator model (65536 maxOutputTokens).
+  { pattern: "*gemini-pro-orchestrator*", caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 65536 } },
   // Gemini 4 (Argon): no "minimal" tier (400) and no thinkingBudget — LOW/MEDIUM/HIGH only, cannot disable.
   { pattern: "*gemini-4*",      caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 65536 } },
   { pattern: "*gemini-3.8*",    caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 65536 } },
@@ -860,7 +864,7 @@ export function getCapabilitiesForModel(provider, model) {
   return refine(null, provider, model);
 }
 
-// Gemini 4 (Argon) drops sampling params and requires functionResponse-last merged user turns.
+// Gemini 4 (Argon / Hydrogen / Orchestrator) drops sampling params and requires functionResponse-last merged user turns.
 export function isGemini4Model(model) {
-  return /(?:^|\/)gemini-4(?:$|[-.])/i.test(String(model || ""));
+  return /(?:^|\/)(?:gemini-4(?:$|[-.])|gemini-pro-orchestrator(?:$|[-.]))/i.test(String(model || ""));
 }

@@ -303,7 +303,7 @@ describe("fetchAntigravityWeeklyQuota", () => {
         method: "POST",
         headers: expect.objectContaining({
           "Authorization": "Bearer token",
-          "User-Agent": "antigravity/hub/2.23.1 (aidev_client; os_type=windows; arch=amd64; cl=998881661)",
+          "User-Agent": "antigravity/hub/2.31.2 (aidev_client; os_type=windows; arch=amd64; cl=1019359392)",
           "Content-Type": "application/json",
           "X-Client-Name": "antigravity",
         }),
@@ -514,5 +514,79 @@ describe("weekly quota isolation from existing quota", () => {
       remainingPercentage: 75,
       resetAt: "2026-09-15T00:00:00.000Z",
     });
+  });
+
+  it("parses Gemini 4 Hydrogen tiers and Orchestrator (Argon) into their respective quota families", async () => {
+    proxyAwareFetch.mockImplementation(async (url) => {
+      if (url.includes(":loadCodeAssist")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ cloudaicompanionProject: "p1", currentTier: { name: "Pro" }, paidTier: { id: "g1-pro-tier", name: "Google AI Pro" } }),
+        };
+      }
+      if (url.includes(":fetchAvailableModels")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            models: {
+              "gemini-4-hydrogen-xhigh": {
+                displayName: "Gemini 4 Hydrogen (XHigh)",
+                quotaInfo: { remainingFraction: 0.9, resetTime: "2026-09-13T12:00:00Z" },
+              },
+              "gemini-pro-orchestrator-g1-pro": {
+                displayName: "Orchestrator (Argon)",
+                quotaInfo: { resetTime: "2026-09-14T16:00:00Z" },
+              },
+            },
+          }),
+        };
+      }
+      if (url.includes(":retrieveUserQuotaSummary")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            groups: [
+              {
+                displayName: "Gemini 4 Argon",
+                buckets: [{
+                  bucketId: "argon-5h",
+                  displayName: "Five Hour Limit Remaining",
+                  window: "5h",
+                  remainingFraction: 1,
+                  resetTime: "2026-09-14T15:00:00Z",
+                }],
+              },
+              {
+                displayName: "Gemini Models",
+                buckets: [{
+                  bucketId: "gemini-5h",
+                  displayName: "Five Hour Limit Remaining",
+                  window: "5h",
+                  remainingFraction: 0.9,
+                  resetTime: "2026-09-13T12:00:00Z",
+                }],
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    });
+
+    const { getAntigravityUsage } = await import("../../open-sse/services/usage/google.js");
+    const result = await getAntigravityUsage("token-hydrogen", null);
+
+    expect(result.quotas["gemini-4-hydrogen-xhigh"]).toMatchObject({
+      used: 100,
+      total: 1000,
+      remainingPercentage: 90,
+    });
+    expect(result.quotas["gemini-pro-orchestrator-g1-pro"].remainingPercentage).toBe(0);
+    // Orchestrator exhausted -> reconciles gemini_argon_session to 0%, leaving gemini_session at 90%
+    expect(result.quotas.gemini_argon_session.remainingPercentage).toBe(0);
+    expect(result.quotas.gemini_session.remainingPercentage).toBe(90);
   });
 });

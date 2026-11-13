@@ -26,7 +26,7 @@ describe("Antigravity usage headers", () => {
     // loadCodeAssist + fetchAvailableModels + retrieveUserQuotaSummary
     expect(proxyAwareFetch).toHaveBeenCalledTimes(3);
     for (const [, options] of proxyAwareFetch.mock.calls) {
-      expect(options.headers["User-Agent"]).toBe("antigravity/hub/2.23.1 (aidev_client; os_type=windows; arch=amd64; cl=998881661)");
+      expect(options.headers["User-Agent"]).toBe("antigravity/hub/2.31.2 (aidev_client; os_type=windows; arch=amd64; cl=1019359392)");
       expect(options.headers).not.toHaveProperty("x-request-source");
     }
   });
