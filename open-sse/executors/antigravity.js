@@ -34,6 +34,25 @@ const ANTIGRAVITY_TRANSIENT_ERROR_PATTERNS = [
   /empty\s+response/i,
 ];
 
+// Antigravity refuses requests whose systemInstruction matches fingerprinted third-party
+// agent text (see ANTIGRAVITY_PROMPT_REWRITES) with a bare gRPC RESOURCE_EXHAUSTED: generic
+// message and no ErrorInfo/RetryInfo details. Real quota errors carry details with
+// quotaResetTimeStamp / retryDelay or specific quota messages. Treating the bare form as
+// request-scoped (400) prevents futile retries, false quota refreshes, and multi-account locks.
+const ANTIGRAVITY_BARE_EXHAUSTED_MESSAGE = /^Resource has been exhausted \(e\.g\. check quota\)\.?$/;
+export const ANTIGRAVITY_PROMPT_REJECTED_MESSAGE = "Antigravity rejected this request (upstream 429 RESOURCE_EXHAUSTED with no quota details, so this is not your quota). "
+  + "Antigravity refuses system prompts that carry certain third-party agent text; 9router rewrites the known strings "
+  + "(ANTIGRAVITY_PROMPT_REWRITES), so this prompt contains text it does not cover yet.";
+
+export function isAntigravityPromptRejection(status, bodyText) {
+  if (status !== HTTP_STATUS.RATE_LIMITED || !bodyText) return false;
+  let err;
+  try { err = JSON.parse(bodyText)?.error; } catch { return false; }
+  if (err?.status !== "RESOURCE_EXHAUSTED") return false;
+  if (!ANTIGRAVITY_BARE_EXHAUSTED_MESSAGE.test(String(err.message || "").trim())) return false;
+  return !(Array.isArray(err.details) && err.details.length > 0);
+}
+
 const ANTIGRAVITY_TRANSIENT_STATUSES = new Set([
   HTTP_STATUS.SERVER_ERROR,
   HTTP_STATUS.BAD_GATEWAY,
@@ -119,6 +138,9 @@ export class AntigravityExecutor extends BaseExecutor {
 
   // Parse Antigravity quota error to extract precise resetsAtMs from ErrorInfo/RetryInfo
   parseError(response, bodyText) {
+    if (!this.parseRetryHeaders(response?.headers) && isAntigravityPromptRejection(response?.status, bodyText)) {
+      return { status: HTTP_STATUS.BAD_REQUEST, message: ANTIGRAVITY_PROMPT_REJECTED_MESSAGE };
+    }
     if ((response.status === 429 || response.status === 409) && bodyText) {
       try {
         const json = JSON.parse(bodyText);
@@ -303,15 +325,26 @@ export class AntigravityExecutor extends BaseExecutor {
     const { tools: _originalTools, toolConfig: _originalToolConfig, ...requestWithoutTools } = body.request || {};
     stripBlacklisted(requestWithoutTools);
     
-    // Rewrite competing-client branding in system prompts (e.g. Zed's Claude prompt,
-    // OpenCode naming) so Antigravity doesn't flag the request with a 429 Quota Exhausted.
-    if (requestWithoutTools.systemInstruction?.parts) {
-      for (const part of requestWithoutTools.systemInstruction.parts) {
-        if (typeof part.text !== "string") continue;
-        for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
-          part.text = part.text.replaceAll(from, to);
-        }
+    // Rewrite competing-client branding in system prompts (e.g. Pi, Claude Code, OpenCode,
+    // Codex, Hermes, OpenClaw) so Antigravity doesn't flag the request with a fake 429.
+    const rewriteSystemText = (text) => {
+      let rewritten = text;
+      for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
+        rewritten = rewritten.replaceAll(from, to);
       }
+      return rewritten;
+    };
+    if (Array.isArray(requestWithoutTools.systemInstruction?.parts)) {
+      requestWithoutTools.systemInstruction = {
+        ...requestWithoutTools.systemInstruction,
+        parts: requestWithoutTools.systemInstruction.parts.map((part) => (
+          part && typeof part.text === "string"
+            ? { ...part, text: rewriteSystemText(part.text) }
+            : part
+        )),
+      };
+    } else if (typeof requestWithoutTools.systemInstruction === "string") {
+      requestWithoutTools.systemInstruction = rewriteSystemText(requestWithoutTools.systemInstruction);
     }
 
     const effectiveModel = String(body.model || model || "").toLowerCase();
@@ -477,6 +510,9 @@ export class AntigravityExecutor extends BaseExecutor {
     } catch {
       // ignore parse errors → fall through to status/message based retry
     }
+
+    // Prompt-filter rejections repeat deterministically on the same body — do not backoff/retry.
+    if (!retryMs && isAntigravityPromptRejection(response.status, bodyText)) return false;
 
     const errorMessage = this.extractErrorMessage(errorJson, bodyText);
 

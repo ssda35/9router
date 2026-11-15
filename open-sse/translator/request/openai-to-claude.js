@@ -36,15 +36,16 @@ export function openaiToClaudeRequest(model, body, stream) {
   const systemParts = [];
 
   if (body.messages && Array.isArray(body.messages)) {
-    // Extract system messages
+    // Extract system and developer instruction messages
+    const isSystemLikeRole = (r) => r === ROLE.SYSTEM || r === ROLE.DEVELOPER;
     for (const msg of body.messages) {
-      if (msg.role === ROLE.SYSTEM) {
+      if (isSystemLikeRole(msg.role)) {
         systemParts.push(typeof msg.content === "string" ? msg.content : extractTextContent(msg.content, "\n"));
       }
     }
 
-    // Filter out system messages for separate processing
-    const nonSystemMessages = body.messages.filter(m => m.role !== ROLE.SYSTEM);
+    // Filter out system/developer messages for separate processing
+    const nonSystemMessages = body.messages.filter(m => !isSystemLikeRole(m.role));
 
     // Process messages with merging logic
     // CRITICAL: tool_result must be in separate message immediately after tool_use
@@ -363,10 +364,12 @@ function openaiToClaudeRequestForAntigravity(model, body, stream) {
     ANTIGRAVITY_CLAUDE_MAX_OUTPUT_TOKENS
   );
 
-  // Remove Claude Code system prompt, keep only user's system messages
+  // Remove only the synthetic CLAUDE_SYSTEM_PROMPT block prepended by openaiToClaudeRequest,
+  // keeping the caller's own system prompt block intact (AntigravityExecutor rewrites any
+  // fingerprinted "Claude Code" strings inside it without dropping CLAUDE.md / tool instructions).
   if (result.system && Array.isArray(result.system)) {
-    result.system = result.system.filter(block =>
-      !block.text || !block.text.includes("You are Claude Code")
+    result.system = result.system.filter((block, idx) =>
+      !(idx === 0 && block.text === CLAUDE_SYSTEM_PROMPT && !block.cache_control)
     );
     if (result.system.length === 0) {
       delete result.system;

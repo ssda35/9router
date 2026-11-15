@@ -186,12 +186,43 @@ export const CLAUDE_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official C
 // makes the backend flag the request and answer 429 Quota Exhausted.
 export const ANTIGRAVITY_PROMPT_REWRITES = [
   { from: "You are a Claude agent, built on Anthropic's Claude Agent SDK.", to: "" },
-  { from: /You are Hermes(?: Agent)?(?:,\s*(?:an intelligent AI assistant|an AI assistant|an AI agent))?(?:,?\s*(?:built|created)\s+by\s+Nous Research)?\./gi, to: "You are an AI assistant." },
   // Claude Code prepends this line to its system prompt. The Claude-format translator strips it,
   // but OpenAI-format clients (e.g. proxies that convert Claude Code to /v1/chat/completions)
   // pass it through, and any system text containing it gets a fake 429 RESOURCE_EXHAUSTED.
   { from: /^x-anthropic-billing-header:[^\n]*(?:\r?\n)*/gim, to: "" },
-  { from: /opencode/gi, to: (m) => (m === "OpenCode" ? "Antigravity" : m === "OPENCODE" ? "ANTIGRAVITY" : "antigravity") }
+  // Claude Code CLI identity & mentions trigger a bare 429 RESOURCE_EXHAUSTED on Antigravity Gemini models.
+  { from: /You are Claude Code,\s*Anthropic's official CLI for Claude\./gi, to: "You are an AI coding assistant." },
+  { from: /\bClaude Code\b/gi, to: "Claude CLI" },
+  // Pi (pi-coding-agent) default system prompt preamble.
+  { from: /You are a coding assistant running inside pi,\s*a coding agent harness\./gi, to: "You are a helpful coding assistant." },
+  // OpenCode V2 Code Mode injects `tools.opencode.<tool>` (notably `tools.opencode.session_move`),
+  // which triggers a bare 429. Bracket access stays valid JS for Code Mode while avoiding the match.
+  { from: /tools\.opencode\./g, to: 'tools["opencode"].' },
+  { from: /(?<!tools\[")opencode(?!"\])/gi, to: (m) => (m === "OpenCode" ? "Antigravity" : m === "OPENCODE" ? "ANTIGRAVITY" : "antigravity") },
+  // Codex CLI / Desktop identity banner (including 0.169+ wording).
+  { from: /You are Codex,\s*(?:a\s+|an\s+)?(?:coding\s+)?agent\s+based\s+on\s+[^.\r\n]+\.?/gi, to: "You are an AI coding assistant." },
+  // Generic coding-task pair-programming sentence gated by Cloud Code PA (#5701).
+  { from: /solve coding tasks\.\s*Be concise,\s*practical,\s*and tool-aware\./gi, to: "work on their coding tasks. Keep responses concise and practical, and use the available tools when they help." },
+  // Hermes Agent fingerprinted identity and runtime strings (#5703).
+  { from: /You are Hermes(?: Agent)?(?:,\s*(?:an intelligent AI assistant|an AI assistant|an AI agent))?(?:,?\s*(?:built|created)\s+by\s+Nous Research)?\./gi, to: "You are an AI assistant." },
+  { from: /Be direct:\s*match the length of your reply to the weight of the ask/gi, to: "Match the length of your reply to the weight of the ask" },
+  { from: /(documentation at https:\/\/hermes-agent\.nousresearch\.com\/docs) is your authoritative reference/gi, to: "$1 is the authoritative reference" },
+  { from: /For help with Hermes Agent itself/gi, to: "For help with the agent itself" },
+  { from: /Hermes delivers their message as a standalone user message/gi, to: "the harness delivers their message as a standalone user message" },
+  { from: /You are chatting inside the Hermes desktop app,\s*a graphical chat surface\./gi, to: "You are chatting inside a graphical desktop chat surface." },
+  { from: /never via Hermes bot/gi, to: "never via the assistant bot" },
+  { from: /# Hermes runtime environment/gi, to: "# Runtime environment" },
+  { from: /<!-- End Hermes runtime environment -->/gi, to: "<!-- End runtime environment -->" },
+  { from: /# Google model operational directives/gi, to: "# Operational directives" },
+  // OpenClaw opening identity sentence (#5696 / #5703).
+  { from: /You are a personal assistant running inside OpenClaw\./gi, to: "You are a personal assistant that runs inside OpenClaw." },
+  // oh-my-pi (omp), ZCode, and DeepSeek Harness system prompt triggers.
+  { from: /^You are omp\b[^\r\n]*/gim, to: "You are an AI coding assistant." },
+  { from: /<(\/?)system[-_](conventions|directive)>/gi, to: "<$1workspace_$2>" },
+  { from: /RFC 2119:\s*MUST,\s*REQUIRED,\s*SHOULD,\s*RECOMMENDED,\s*MAY,\s*OPTIONAL\./gi, to: "Key conventions: MUST, REQUIRED, SHOULD, RECOMMENDED, MAY, and OPTIONAL." },
+  { from: /Read xd:\/\/<tool> for full docs \+ JSON schema before first use\./gi, to: "Check xd://<tool> to inspect the full documentation and JSON schema before first use." },
+  { from: /^You are ZCode\b[^\r\n]*/gim, to: "You are an AI coding assistant." },
+  { from: /DeepSeek Harness/gi, to: "Assistant Framework" },
 ];
 
 export const ANTIGRAVITY_DEFAULT_SYSTEM = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**";
