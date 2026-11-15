@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { ANTIGRAVITY_SYSTEM_ANCHOR } from "../../open-sse/config/appConstants.js";
 import { AntigravityExecutor } from "../../open-sse/executors/antigravity.js";
 import { openaiToAntigravityRequest } from "../../open-sse/translator/request/openai-to-gemini.js";
 
@@ -14,7 +15,8 @@ function systemTextSentToAntigravity(systemContent) {
     ],
   }, true);
   const finalBody = new AntigravityExecutor().transformRequest("gemini-3.8-flash-tiered", body, true, {});
-  return finalBody.request.systemInstruction.parts.map((p) => p.text).join("\n");
+  expect(finalBody.request.systemInstruction?.parts?.map((p) => p.text).join("\n")).toBe(ANTIGRAVITY_SYSTEM_ANCHOR);
+  return finalBody.request.contents[0].parts.map((p) => p.text).join("\n");
 }
 
 describe("Antigravity strips the Claude Code billing header from system prompts", () => {

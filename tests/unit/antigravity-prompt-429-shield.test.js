@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { ANTIGRAVITY_SYSTEM_ANCHOR } from "../../open-sse/config/appConstants.js";
 import {
   AntigravityExecutor,
   ANTIGRAVITY_PROMPT_REJECTED_MESSAGE,
@@ -22,10 +23,13 @@ function transformOpenAISystem(model, systemContent, userContent = "hello") {
     true
   );
   const finalBody = new AntigravityExecutor().transformRequest(model, body, true, {});
+  const rawSystemField = finalBody.request.systemInstruction?.parts?.map((p) => p.text).join("\n") ?? "";
+  const firstParts = finalBody.request.contents?.[0]?.parts ?? [];
   return {
     finalBody,
-    systemText: finalBody.request.systemInstruction?.parts?.map((p) => p.text).join("\n") ?? "",
-    userText: finalBody.request.contents?.[0]?.parts?.map((p) => p.text).join("\n") ?? "",
+    rawSystemField,
+    systemText: firstParts[0]?.text ?? "",
+    userText: firstParts.slice(1).map((p) => p.text).join("\n") ?? "",
   };
 }
 
@@ -42,7 +46,8 @@ function transformClaudeMessagesSystem(model, systemBlocks, userContent = "hello
   );
   const agBody = openaiToAntigravityRequest(model, oai, true);
   const finalBody = new AntigravityExecutor().transformRequest(model, agBody, true, {});
-  return finalBody.request.systemInstruction?.parts?.map((p) => p.text).join("\n") ?? "";
+  expect(finalBody.request.systemInstruction?.parts?.map((p) => p.text).join("\n")).toBe(ANTIGRAVITY_SYSTEM_ANCHOR);
+  return finalBody.request.contents?.[0]?.parts?.[0]?.text ?? "";
 }
 
 describe("Antigravity prompt-triggered 429 shield", () => {
@@ -50,12 +55,21 @@ describe("Antigravity prompt-triggered 429 shield", () => {
 
   describe("Pi (pi-coding-agent) system prompt", () => {
     for (const model of models) {
-      it(`rewrites Pi preamble on ${model} while keeping rules and user text intact`, () => {
-        const piPrompt =
-          "You are a coding assistant running inside pi, a coding agent harness. Help users inspect files, run commands, and modify code.\n\n<tools>\n- read: Read file contents\n</tools>";
-        const { systemText, userText } = transformOpenAISystem(model, piPrompt, "fix bug in pi");
+      it(`relocates and rewrites Pi preamble on ${model} while keeping rules, docs paths, and user text intact`, () => {
+        const piPrompt = [
+          "You are a coding assistant running inside pi, a coding agent harness. Help users inspect files, run commands, and modify code.",
+          "<tools>\n- read: Read file contents\n</tools>",
+          "<docs>\nPi documentation (read only when the user asks about the harness itself, its SDK, extensions, themes, skills, or TUI):\n- Main documentation: /opt/node_modules/@earendil-works/pi-coding-agent/README.md\n</docs>",
+          "## Memory\n- Fixed Pi (`pi-coding-agent`) and OpenCode V2 (`tools.opencode.`) notes in MEMORY.md",
+        ].join("\n\n");
+        const { rawSystemField, systemText, userText } = transformOpenAISystem(model, piPrompt, "fix bug in pi");
+        expect(rawSystemField).toBe(ANTIGRAVITY_SYSTEM_ANCHOR);
+        expect(rawSystemField).not.toContain("pi-coding-agent");
+        expect(systemText).toMatch(/^<system_instructions>\n[\s\S]+\n<\/system_instructions>\n\n$/);
         expect(systemText).not.toContain("running inside pi, a coding agent harness");
+        expect(systemText).not.toContain("Pi documentation (read only when the user asks about the harness");
         expect(systemText).toContain("You are a helpful coding assistant. Help users inspect files, run commands, and modify code.");
+        expect(systemText).toContain("/opt/node_modules/@earendil-works/pi-coding-agent/README.md");
         expect(systemText).toContain("- read: Read file contents");
         expect(userText).toBe("fix bug in pi");
       });
@@ -162,7 +176,7 @@ describe("Antigravity prompt-triggered 429 shield", () => {
       expect(systemText).toContain(expected);
     });
 
-    it("does not mutate the caller's original systemInstruction parts in place", () => {
+    it("does not mutate the caller's original systemInstruction parts in place and stays idempotent on retry", () => {
       const originalPart = { text: "You are a coding assistant running inside pi, a coding agent harness." };
       const body = {
         model: "gemini-3.8-flash-high",
@@ -171,12 +185,51 @@ describe("Antigravity prompt-triggered 429 shield", () => {
           systemInstruction: { role: "user", parts: [originalPart] },
         },
       };
-      const out = new AntigravityExecutor().transformRequest("gemini-3.8-flash-high", body, true, {});
+      const executor = new AntigravityExecutor();
+      const out1 = executor.transformRequest("gemini-3.8-flash-high", body, true, {});
       expect(originalPart.text).toBe("You are a coding assistant running inside pi, a coding agent harness.");
-      expect(out.request.systemInstruction.parts[0].text).toBe("You are a helpful coding assistant.");
+      expect(out1.request.systemInstruction.parts).toEqual([{ text: ANTIGRAVITY_SYSTEM_ANCHOR }]);
+      expect(out1.request.contents[0].parts[0].text).toBe(
+        "<system_instructions>\nYou are a helpful coding assistant.\n</system_instructions>\n\n"
+      );
+      expect(out1.request.contents[0].parts[1].text).toBe("hi");
+
+      // Simulate BaseExecutor retry passing the already-transformed body again.
+      const out2 = executor.transformRequest("gemini-3.8-flash-high", out1, true, {});
+      expect(out2.request.systemInstruction.parts).toEqual([{ text: ANTIGRAVITY_SYSTEM_ANCHOR }]);
+      expect(out2.request.contents[0].parts).toHaveLength(2);
+      expect(out2.request.contents[0].parts[0].text).toBe(
+        "<system_instructions>\nYou are a helpful coding assistant.\n</system_instructions>\n\n"
+      );
     });
 
-    it("preserves and rewrites both top-level instructions and developer role items via /v1/responses", () => {
+    it("drops systemInstruction cleanly when empty or stripped down to empty", () => {
+      const executor = new AntigravityExecutor();
+      const noSys = executor.transformRequest(
+        "gemini-4-argon-medium",
+        { request: { contents: [{ role: "user", parts: [{ text: "hi" }] }] } },
+        true,
+        {}
+      );
+      expect(noSys.request.systemInstruction).toBeUndefined();
+      expect(noSys.request.contents[0].parts).toEqual([{ text: "hi" }]);
+
+      const billingOnly = executor.transformRequest(
+        "gemini-4-argon-medium",
+        {
+          request: {
+            systemInstruction: { role: "user", parts: [{ text: "x-anthropic-billing-header: cc_version=2.1.325;" }] },
+            contents: [{ role: "user", parts: [{ text: "hi" }] }],
+          },
+        },
+        true,
+        {}
+      );
+      expect(billingOnly.request.systemInstruction).toBeUndefined();
+      expect(billingOnly.request.contents[0].parts).toEqual([{ text: "hi" }]);
+    });
+
+    it("preserves and relocates both top-level instructions and developer role items via /v1/responses", () => {
       for (const model of ["gemini-4-hydrogen-xhigh", "claude-opus-5-5-high"]) {
         const responsesBody = {
           model,
@@ -197,14 +250,17 @@ describe("Antigravity prompt-triggered 429 shield", () => {
         const oai = openaiResponsesToOpenAIRequest(model, responsesBody, true, {});
         const ag = openaiToAntigravityRequest(model, oai, true, {});
         const finalBody = new AntigravityExecutor().transformRequest(model, ag, true, {});
-        const systemText = finalBody.request.systemInstruction.parts.map((p) => p.text).join("\n");
+        const rawSystemField = finalBody.request.systemInstruction.parts.map((p) => p.text).join("\n");
+        const relocatedText = finalBody.request.contents[0].parts[0].text;
 
-        expect(systemText).not.toContain("You are Codex");
-        expect(systemText).not.toContain("running inside pi");
-        expect(systemText).toContain("You are an AI coding assistant.");
-        expect(systemText).toContain("You are a helpful coding assistant. Follow project rules.");
+        expect(rawSystemField).toBe(ANTIGRAVITY_SYSTEM_ANCHOR);
+        expect(relocatedText).not.toContain("You are Codex");
+        expect(relocatedText).not.toContain("running inside pi");
+        expect(relocatedText).toContain("You are an AI coding assistant.");
+        expect(relocatedText).toContain("You are a helpful coding assistant. Follow project rules.");
         expect(finalBody.request.contents).toHaveLength(1);
         expect(finalBody.request.contents[0].role).toBe("user");
+        expect(finalBody.request.contents[0].parts[1].text).toBe("Reply OK");
       }
     });
   });

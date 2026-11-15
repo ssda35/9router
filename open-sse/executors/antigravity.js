@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
-import { OAUTH_ENDPOINTS, ANTIGRAVITY_HEADERS, AG_DEFAULT_TOOLS, AG_TOOL_SUFFIX, ANTIGRAVITY_PROMPT_REWRITES } from "../config/appConstants.js";
+import { OAUTH_ENDPOINTS, ANTIGRAVITY_HEADERS, AG_DEFAULT_TOOLS, AG_TOOL_SUFFIX, ANTIGRAVITY_PROMPT_REWRITES, ANTIGRAVITY_SYSTEM_ANCHOR } from "../config/appConstants.js";
 import { HTTP_STATUS } from "../config/runtimeConfig.js";
 import { resolveSessionId, toNumericSessionId } from "../utils/sessionManager.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
@@ -325,8 +325,13 @@ export class AntigravityExecutor extends BaseExecutor {
     const { tools: _originalTools, toolConfig: _originalToolConfig, ...requestWithoutTools } = body.request || {};
     stripBlacklisted(requestWithoutTools);
     
-    // Rewrite competing-client branding in system prompts (e.g. Pi, Claude Code, OpenCode,
-    // Codex, Hermes, OpenClaw) so Antigravity doesn't flag the request with a fake 429.
+    // Relocate client system prompts out of `request.systemInstruction` into a
+    // `<system_instructions>` block at the head of `contents[0]`, leaving only a
+    // short neutral anchor in `request.systemInstruction`. Google Cloud Code PA's
+    // `policy_guardian` scans `request.systemInstruction` for third-party agent,
+    // extension, tool-catalog, and memory text and rejects matches with a bare 429
+    // RESOURCE_EXHAUSTED, while `request.contents` is unaffected. Known signatures
+    // are still rewritten first as defense-in-depth.
     const rewriteSystemText = (text) => {
       let rewritten = text;
       for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
@@ -334,17 +339,55 @@ export class AntigravityExecutor extends BaseExecutor {
       }
       return rewritten;
     };
-    if (Array.isArray(requestWithoutTools.systemInstruction?.parts)) {
+    delete requestWithoutTools.system_instruction;
+    const rawSystemParts = Array.isArray(requestWithoutTools.systemInstruction?.parts)
+      ? requestWithoutTools.systemInstruction.parts
+      : (typeof requestWithoutTools.systemInstruction === "string"
+        ? [{ text: requestWithoutTools.systemInstruction }]
+        : []);
+    const rawSystemJoined = rawSystemParts
+      .map((part) => (part && typeof part.text === "string" ? part.text : ""))
+      .filter(Boolean)
+      .join("\n");
+    const alreadyRelocated =
+      rawSystemJoined.trim() === ANTIGRAVITY_SYSTEM_ANCHOR &&
+      typeof contents?.[0]?.parts?.[0]?.text === "string" &&
+      contents[0].parts[0].text.startsWith("<system_instructions>\n");
+
+    if (alreadyRelocated) {
       requestWithoutTools.systemInstruction = {
-        ...requestWithoutTools.systemInstruction,
-        parts: requestWithoutTools.systemInstruction.parts.map((part) => (
-          part && typeof part.text === "string"
-            ? { ...part, text: rewriteSystemText(part.text) }
-            : part
-        )),
+        role: "user",
+        parts: [{ text: ANTIGRAVITY_SYSTEM_ANCHOR }],
       };
-    } else if (typeof requestWithoutTools.systemInstruction === "string") {
-      requestWithoutTools.systemInstruction = rewriteSystemText(requestWithoutTools.systemInstruction);
+    } else if (rawSystemParts.length > 0) {
+      const cleanedSystemText = rawSystemParts
+        .map((part) => (part && typeof part.text === "string" ? rewriteSystemText(part.text).trim() : ""))
+        .filter(Boolean)
+        .join("\n\n")
+        .trim();
+
+      if (cleanedSystemText) {
+        const wrappedBlock = `<system_instructions>\n${cleanedSystemText}\n</system_instructions>\n\n`;
+        if (Array.isArray(contents) && contents.length > 0 && contents[0].role === "user") {
+          contents[0] = {
+            ...contents[0],
+            parts: [{ text: wrappedBlock }, ...(contents[0].parts || [])],
+          };
+        } else {
+          contents.unshift({
+            role: "user",
+            parts: [{ text: wrappedBlock }],
+          });
+        }
+        requestWithoutTools.systemInstruction = {
+          role: "user",
+          parts: [{ text: ANTIGRAVITY_SYSTEM_ANCHOR }],
+        };
+      } else {
+        delete requestWithoutTools.systemInstruction;
+      }
+    } else {
+      delete requestWithoutTools.systemInstruction;
     }
 
     const effectiveModel = String(body.model || model || "").toLowerCase();
