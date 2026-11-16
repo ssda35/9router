@@ -53,6 +53,70 @@ export function isAntigravityPromptRejection(status, bodyText) {
   return !(Array.isArray(err.details) && err.details.length > 0);
 }
 
+// anthropic-proxy (Roo XML route) sends system as:
+//   <system>\n{client prompt}\n====\n\nTOOL USE ... # Tools\n\n{tool catalog}\n\n# Rules ...\n</system>
+//   followed by its own blocks (<output-budget>, <id_answer>/<id_unique> rules, ...).
+// Split it so the proxy's protocol text stays in systemInstruction while the client
+// prompt and client tool catalog (the policy_guardian triggers) move to contents.
+const PROXY_ENVELOPE_OPEN = "<system>\n";
+const PROXY_ENVELOPE_CLOSE = "\n</system>";
+const PROXY_ROO_HEADER = "====\n\nTOOL USE\n";
+const PROXY_TOOLS_HEADING = "\n# Tools\n\n";
+const PROXY_RULES_HEADING = "\n\n# Rules\n";
+const PROXY_ONLY_PREFIXES = [
+  "<output-budget>",
+  "<system-reminder priority=\"CRITICAL\"",
+  "Important rules:",
+  "<conversation-format>",
+  "<tool-result-boundary",
+];
+export const ANTIGRAVITY_RELOCATED_TOOLS_NOTE =
+  "The tool catalog is listed under \"# Tools\" in the <system_instructions> block at the start of the first user message.";
+
+export function splitAntigravitySystemText(text) {
+  const source = typeof text === "string" ? text : "";
+  const trimmed = source.trim();
+  if (!trimmed) return { clientText: "", keptBlocks: [] };
+  if (PROXY_ONLY_PREFIXES.some((prefix) => trimmed.startsWith(prefix))) {
+    return { clientText: "", keptBlocks: [trimmed] };
+  }
+
+  let open = -1;
+  if (trimmed.startsWith(PROXY_ENVELOPE_OPEN)) open = 0;
+  else {
+    const idx = trimmed.indexOf(`\n${PROXY_ENVELOPE_OPEN}`);
+    if (idx >= 0) open = idx + 1;
+  }
+  const close = trimmed.lastIndexOf(PROXY_ENVELOPE_CLOSE);
+  if (open < 0 || close < open + PROXY_ENVELOPE_OPEN.length - 1) {
+    return { clientText: trimmed, keptBlocks: [] };
+  }
+
+  const prefix = trimmed.slice(0, open).trim();
+  const inner = trimmed.slice(open + PROXY_ENVELOPE_OPEN.length, close);
+  const tail = trimmed.slice(close + PROXY_ENVELOPE_CLOSE.length).trim();
+
+  let base = inner;
+  let rooKept = "";
+  let toolCatalog = "";
+  const rooIdx = inner.startsWith(PROXY_ROO_HEADER) ? 0 : inner.indexOf(`\n${PROXY_ROO_HEADER}`);
+  if (rooIdx >= 0) {
+    const roo = inner.slice(rooIdx === 0 ? 0 : rooIdx + 1);
+    const toolsIdx = roo.indexOf(PROXY_TOOLS_HEADING);
+    const rulesIdx = roo.lastIndexOf(PROXY_RULES_HEADING);
+    if (toolsIdx >= 0 && rulesIdx > toolsIdx) {
+      base = inner.slice(0, rooIdx);
+      toolCatalog = roo.slice(toolsIdx + PROXY_TOOLS_HEADING.length, rulesIdx).trim();
+      rooKept = `${roo.slice(0, toolsIdx)}${PROXY_TOOLS_HEADING}${ANTIGRAVITY_RELOCATED_TOOLS_NOTE}${roo.slice(rulesIdx)}`.trim();
+    }
+  }
+
+  const clientText = [prefix, base.trim(), toolCatalog ? `# Tools\n\n${toolCatalog}` : ""]
+    .filter(Boolean)
+    .join("\n\n");
+  return { clientText, keptBlocks: [rooKept, tail].filter(Boolean) };
+}
+
 const ANTIGRAVITY_TRANSIENT_STATUSES = new Set([
   HTTP_STATUS.SERVER_ERROR,
   HTTP_STATUS.BAD_GATEWAY,
@@ -350,21 +414,24 @@ export class AntigravityExecutor extends BaseExecutor {
       .filter(Boolean)
       .join("\n");
     const alreadyRelocated =
-      rawSystemJoined.trim() === ANTIGRAVITY_SYSTEM_ANCHOR &&
+      rawSystemJoined.trimStart().startsWith(ANTIGRAVITY_SYSTEM_ANCHOR) &&
       typeof contents?.[0]?.parts?.[0]?.text === "string" &&
       contents[0].parts[0].text.startsWith("<system_instructions>\n");
 
     if (alreadyRelocated) {
       requestWithoutTools.systemInstruction = {
         role: "user",
-        parts: [{ text: ANTIGRAVITY_SYSTEM_ANCHOR }],
+        parts: rawSystemParts.map((part) => ({ ...part })),
       };
     } else if (rawSystemParts.length > 0) {
-      const cleanedSystemText = rawSystemParts
-        .map((part) => (part && typeof part.text === "string" ? rewriteSystemText(part.text).trim() : ""))
+      // anthropic-proxy blocks (Roo XML protocol + end-of-turn/budget rules) stay in
+      // systemInstruction; only the client's own prompt and tool catalog move.
+      const { clientText, keptBlocks } = splitAntigravitySystemText(rawSystemJoined);
+      const cleanedSystemText = rewriteSystemText(clientText).trim();
+      const keptParts = keptBlocks
+        .map((block) => rewriteSystemText(block).trim())
         .filter(Boolean)
-        .join("\n\n")
-        .trim();
+        .map((text) => ({ text }));
 
       if (cleanedSystemText) {
         const wrappedBlock = `<system_instructions>\n${cleanedSystemText}\n</system_instructions>\n\n`;
@@ -381,8 +448,10 @@ export class AntigravityExecutor extends BaseExecutor {
         }
         requestWithoutTools.systemInstruction = {
           role: "user",
-          parts: [{ text: ANTIGRAVITY_SYSTEM_ANCHOR }],
+          parts: [{ text: ANTIGRAVITY_SYSTEM_ANCHOR }, ...keptParts],
         };
+      } else if (keptParts.length > 0) {
+        requestWithoutTools.systemInstruction = { role: "user", parts: keptParts };
       } else {
         delete requestWithoutTools.systemInstruction;
       }

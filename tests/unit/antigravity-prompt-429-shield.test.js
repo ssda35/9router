@@ -4,7 +4,9 @@ import { ANTIGRAVITY_SYSTEM_ANCHOR } from "../../open-sse/config/appConstants.js
 import {
   AntigravityExecutor,
   ANTIGRAVITY_PROMPT_REJECTED_MESSAGE,
+  ANTIGRAVITY_RELOCATED_TOOLS_NOTE,
   isAntigravityPromptRejection,
+  splitAntigravitySystemText,
 } from "../../open-sse/executors/antigravity.js";
 import { checkFallbackError } from "../../open-sse/services/accountFallback.js";
 import { claudeToOpenAIRequest } from "../../open-sse/translator/request/claude-to-openai.js";
@@ -262,6 +264,117 @@ describe("Antigravity prompt-triggered 429 shield", () => {
         expect(finalBody.request.contents[0].role).toBe("user");
         expect(finalBody.request.contents[0].parts[1].text).toBe("Reply OK");
       }
+    });
+  });
+
+  describe("anthropic-proxy Roo XML system blocks stay in systemInstruction", () => {
+    const envelope = [
+      "<system>",
+      "You are a coding assistant running inside pi, a coding agent harness. Help users.",
+      "<docs>\nPi documentation (read only when the user asks about the harness itself):\n</docs>",
+      "====",
+      "",
+      "TOOL USE",
+      "",
+      "You have access to a set of tools.",
+      "",
+      "# Tool Use Formatting",
+      "",
+      "<actual_tool_name>\n<parameter1_name>value1</parameter1_name>\n</actual_tool_name>",
+      "",
+      "# Tools",
+      "",
+      "## read\nDescription: Read file contents",
+      "",
+      "## subagent\nDescription: SAFETY-CRITICAL SUBAGENT GUIDANCE",
+      "",
+      "# Rules",
+      "",
+      "- Emit each parameter as its own child tag.",
+      "</system>",
+    ].join("\n");
+    const budget = "<output-budget>\nThinking and visible output share one budget.\n</output-budget>";
+    const rule = '<system-reminder priority="CRITICAL" enforcement="mandatory">\nEnd every turn with the tag.\n</system-reminder>';
+
+    function viaProxy(model) {
+      const oai = claudeToOpenAIRequest(
+        model,
+        {
+          model,
+          max_tokens: 4096,
+          system: [
+            { type: "text", text: envelope },
+            { type: "text", text: budget },
+            { type: "text", text: rule },
+          ],
+          messages: [{ role: "user", content: "hello" }],
+        },
+        true
+      );
+      const ag = openaiToAntigravityRequest(model, oai, true);
+      return new AntigravityExecutor().transformRequest(model, ag, true, {});
+    }
+
+    it.each(["gemini-4-argon-medium", "claude-opus-5-5-high"])("keeps proxy blocks in system, moves Pi prompt + tool catalog on %s", (model) => {
+      const out = viaProxy(model);
+      const parts = out.request.systemInstruction.parts.map((p) => p.text);
+      const system = parts.join("\n");
+      const relocated = out.request.contents[0].parts[0].text;
+
+      expect(parts[0]).toBe(ANTIGRAVITY_SYSTEM_ANCHOR);
+      expect(system).toContain("TOOL USE");
+      expect(system).toContain("# Tool Use Formatting");
+      expect(system).toContain("# Rules\n\n- Emit each parameter as its own child tag.");
+      expect(system).toContain(ANTIGRAVITY_RELOCATED_TOOLS_NOTE);
+      expect(system).toContain(budget);
+      expect(system).toContain(rule);
+      expect(system).not.toContain("running inside pi");
+      expect(system).not.toContain("Pi documentation");
+      expect(system).not.toContain("## read");
+      expect(system).not.toContain("SAFETY-CRITICAL");
+
+      expect(relocated.startsWith("<system_instructions>\nYou are a helpful coding assistant. Help users.")).toBe(true);
+      expect(relocated).toContain("# Tools\n\n## read\nDescription: Read file contents");
+      expect(relocated).toContain("SAFETY-CRITICAL SUBAGENT GUIDANCE");
+      expect(relocated).not.toContain("<output-budget>");
+      expect(relocated).not.toContain("TOOL USE");
+      expect(out.request.contents[0].parts.at(-1).text).toBe("hello");
+
+      // Retry with the already-transformed body is a no-op.
+      const again = new AntigravityExecutor().transformRequest(model, out, true, {});
+      expect(again.request.systemInstruction.parts).toEqual(out.request.systemInstruction.parts);
+      expect(again.request.contents[0].parts).toEqual(out.request.contents[0].parts);
+    });
+
+    it("keeps proxy-only system blocks (no client prompt, no tools) entirely in systemInstruction", () => {
+      const out = new AntigravityExecutor().transformRequest(
+        "gemini-4-argon-medium",
+        {
+          request: {
+            systemInstruction: { role: "user", parts: [{ text: `${budget}\n${rule}` }] },
+            contents: [{ role: "user", parts: [{ text: "hi" }] }],
+          },
+        },
+        true,
+        {}
+      );
+      expect(out.request.systemInstruction.parts).toEqual([{ text: `${budget}\n${rule}` }]);
+      expect(out.request.contents[0].parts).toEqual([{ text: "hi" }]);
+    });
+
+    it("splits a prompt with no tools and relocates text that precedes the envelope", () => {
+      expect(splitAntigravitySystemText(`<system>\nBase prompt\n</system>\n${budget}`)).toEqual({
+        clientText: "Base prompt",
+        keptBlocks: [budget],
+      });
+      expect(splitAntigravitySystemText(`Custom 9router prompt\n<system>\nBase\n</system>\n${rule}`)).toEqual({
+        clientText: "Custom 9router prompt\n\nBase",
+        keptBlocks: [rule],
+      });
+      expect(splitAntigravitySystemText("Plain client prompt")).toEqual({
+        clientText: "Plain client prompt",
+        keptBlocks: [],
+      });
     });
   });
 
