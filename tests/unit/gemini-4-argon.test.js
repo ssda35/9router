@@ -78,8 +78,14 @@ describe("Gemini 4 Argon Antigravity tier", () => {
   });
 });
 
-describe("Gemini 4 Hydrogen & Orchestrator on Antigravity", () => {
+describe("Gemini 4 Neon, Hydrogen & Orchestrator on Antigravity", () => {
   it.each([
+    "gemini-4-neon-xhigh",
+    "gemini-4-neon-high",
+    "gemini-4-neon-medium",
+    "gemini-4-neon-low",
+    "gemini-4-neon",
+    "gemini-pro-orchestrator-neon",
     "gemini-4-hydrogen-xhigh",
     "gemini-4-hydrogen-high",
     "gemini-4-hydrogen-medium",
@@ -106,6 +112,12 @@ describe("Gemini 4 Hydrogen & Orchestrator on Antigravity", () => {
   });
 
   it.each([
+    ["gemini-4-neon-xhigh", "gemini-4-neon-xhigh", "xhigh"],
+    ["gemini-4-neon-high", "gemini-4-neon-high", "high"],
+    ["gemini-4-neon-medium", "gemini-4-neon-medium", "medium"],
+    ["gemini-4-neon-low", "gemini-4-neon-low", "low"],
+    ["gemini-4-neon", "gemini-4-neon-high", "high"],
+    ["gemini-pro-orchestrator-neon", "gemini-pro-orchestrator-neon", "xhigh"],
     ["gemini-4-hydrogen-xhigh", "gemini-4-hydrogen-xhigh", "xhigh"],
     ["gemini-4-hydrogen-high", "gemini-4-hydrogen-high", "high"],
     ["gemini-4-hydrogen-medium", "gemini-4-hydrogen-medium", "medium"],
@@ -136,16 +148,22 @@ describe("Gemini 4 Hydrogen & Orchestrator on Antigravity", () => {
     expect(finalBody.request.generationConfig.thinkingConfig).toEqual({ thinkingLevel: expectedLevel, includeThoughts: true });
   });
 
-  it("routes unadorned gemini-4-hydrogen with reasoning_effort xhigh to gemini-4-hydrogen-xhigh(xhigh)", () => {
+  it("routes unadorned gemini-4-neon and gemini-4-hydrogen with reasoning_effort xhigh to their -xhigh variants", () => {
+    expect(getModelUpstreamId("ag", "gemini-4-neon", { reasoning_effort: "xhigh" })).toBe("gemini-4-neon-xhigh(xhigh)");
+    expect(getModelUpstreamId("ag", "gemini-4-neon-xhigh", { reasoning_effort: "low" })).toBe("gemini-4-neon-xhigh(xhigh)");
+    expect(getModelUpstreamId("ag", "gemini-pro-orchestrator-neon", { reasoning_effort: "xhigh" })).toBe("gemini-pro-orchestrator-neon(xhigh)");
     expect(getModelUpstreamId("ag", "gemini-4-hydrogen", { reasoning_effort: "xhigh" })).toBe("gemini-4-hydrogen-xhigh(xhigh)");
     expect(getModelUpstreamId("ag", "gemini-4-hydrogen-xhigh", { reasoning_effort: "low" })).toBe("gemini-4-hydrogen-xhigh(xhigh)");
   });
 
-  it("preserves 262144 max_tokens across Claude-to-OpenAI translation for Gemini 4 Hydrogen", () => {
-    const res = claudeToOpenAIRequest("gemini-4-hydrogen-xhigh", {
-      max_tokens: 262144,
-      messages: [{ role: "user", content: "hello" }],
-    }, true);
-    expect(res.max_tokens).toBe(262144);
-  });
+  it.each(["gemini-4-neon-xhigh", "gemini-pro-orchestrator-neon", "gemini-4-hydrogen-xhigh"])(
+    "preserves 262144 max_tokens across Claude-to-OpenAI translation for %s",
+    (model) => {
+      const res = claudeToOpenAIRequest(model, {
+        max_tokens: 262144,
+        messages: [{ role: "user", content: "hello" }],
+      }, true);
+      expect(res.max_tokens).toBe(262144);
+    }
+  );
 });

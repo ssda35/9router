@@ -303,7 +303,7 @@ describe("fetchAntigravityWeeklyQuota", () => {
         method: "POST",
         headers: expect.objectContaining({
           "Authorization": "Bearer token",
-          "User-Agent": "antigravity/hub/2.31.2 (aidev_client; os_type=windows; arch=amd64; cl=1019359392)",
+          "User-Agent": "antigravity/hub/2.33.0 (aidev_client; os_type=windows; arch=amd64; cl=1023160026)",
           "Content-Type": "application/json",
           "X-Client-Name": "antigravity",
         }),
@@ -531,6 +531,14 @@ describe("weekly quota isolation from existing quota", () => {
           status: 200,
           json: async () => ({
             models: {
+              "gemini-4-neon-xhigh": {
+                displayName: "Gemini 4 Neon (XHigh)",
+                quotaInfo: { remainingFraction: 0.9, resetTime: "2026-09-13T12:00:00Z" },
+              },
+              "gemini-pro-orchestrator-neon": {
+                displayName: "Orchestrator (Neon)",
+                quotaInfo: { remainingFraction: 0.9, resetTime: "2026-09-13T12:00:00Z" },
+              },
               "gemini-4-hydrogen-xhigh": {
                 displayName: "Gemini 4 Hydrogen (XHigh)",
                 quotaInfo: { remainingFraction: 0.9, resetTime: "2026-09-13T12:00:00Z" },
@@ -579,6 +587,16 @@ describe("weekly quota isolation from existing quota", () => {
     const { getAntigravityUsage } = await import("../../open-sse/services/usage/google.js");
     const result = await getAntigravityUsage("token-hydrogen", null);
 
+    expect(result.quotas["gemini-4-neon-xhigh"]).toMatchObject({
+      used: 100,
+      total: 1000,
+      remainingPercentage: 90,
+    });
+    expect(result.quotas["gemini-pro-orchestrator-neon"]).toMatchObject({
+      used: 100,
+      total: 1000,
+      remainingPercentage: 90,
+    });
     expect(result.quotas["gemini-4-hydrogen-xhigh"]).toMatchObject({
       used: 100,
       total: 1000,

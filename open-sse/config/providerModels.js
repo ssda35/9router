@@ -101,9 +101,14 @@ export function getModelUpstreamId(aliasOrId, modelId, clientBody = null) {
   const models = PROVIDER_MODELS[aliasOrId];
 
   // Resolve requested thinking level from suffix or client request body.
-  // Preserve xhigh when a dedicated -xhigh variant exists (e.g. gemini-4-hydrogen-xhigh);
-  // otherwise collapse xhigh/max to high for families whose top tier is -high.
-  const hasXhighVariant = typeof baseId === "string" && !!findModel(models, `${baseId}-xhigh`, aliasOrId);
+  // Preserve xhigh when a dedicated -xhigh variant exists (e.g. gemini-4-neon-xhigh,
+  // gemini-4-hydrogen-xhigh) or when the model itself defaults to (xhigh)
+  // (e.g. gemini-pro-orchestrator-neon); otherwise collapse xhigh/max to high.
+  const baseEntry = typeof baseId === "string" ? findModel(models, baseId, aliasOrId) : null;
+  const hasXhighVariant = typeof baseId === "string" && (
+    !!findModel(models, `${baseId}-xhigh`, aliasOrId) ||
+    /\(xhigh\)\s*$/i.test(baseEntry?.upstreamModelId || "")
+  );
   const normalizeTier = (value) => {
     if (value === "xhigh" || value === "max") return hasXhighVariant ? "xhigh" : "high";
     if (value === "minimal") return "low";

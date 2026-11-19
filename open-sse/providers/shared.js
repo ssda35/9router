@@ -89,12 +89,12 @@ export const KIMI_CODING_BASE_URL = "https://api.kimi.com/coding/v1/messages";
 export const OPENAI_COMPAT_BASE = "https://api.openai.com/v1";
 export const ANTHROPIC_COMPAT_BASE = "https://api.anthropic.com/v1";
 
-// Antigravity Hub 2.31.2 fingerprint captured from the Windows amd64 client.
+// Antigravity Hub 2.33.0 fingerprint captured from the Windows amd64 client.
 // Keep the captured profile static, independent of the router host platform.
 // Retain the IDE export names for compatibility with existing consumers.
-export const ANTIGRAVITY_IDE_VERSION = "2.31.2";
+export const ANTIGRAVITY_IDE_VERSION = "2.33.0";
 export const ANTIGRAVITY_IDE_BASE_URL = "https://daily-cloudcode-pa.googleapis.com";
-export const ANTIGRAVITY_IDE_USER_AGENT = `antigravity/hub/${ANTIGRAVITY_IDE_VERSION} (aidev_client; os_type=windows; arch=amd64; cl=1019359392)`;
+export const ANTIGRAVITY_IDE_USER_AGENT = `antigravity/hub/${ANTIGRAVITY_IDE_VERSION} (aidev_client; os_type=windows; arch=amd64; cl=1023160026)`;
 
 // Antigravity OAuth client credentials (public CLI client — duplicated in usage.js + src/lib/oauth)
 export const ANTIGRAVITY_OAUTH_CLIENT = {

@@ -1,3 +1,9 @@
+# Local change (2026-11-19; v0.5.116, local-only): Antigravity 2.33.0 + Gemini 4 Neon & Orchestrator (Neon)
+
+- **Antigravity fingerprint**: update `ANTIGRAVITY_IDE_VERSION` to `2.33.0` and `ANTIGRAVITY_IDE_USER_AGENT` to `antigravity/hub/2.33.0 (aidev_client; os_type=windows; arch=amd64; cl=1023160026)`.
+- **Models**: add `gemini-4-neon-xhigh`, `gemini-4-neon-high`, `gemini-4-neon-medium`, `gemini-4-neon-low`, `gemini-4-neon`, and `gemini-pro-orchestrator-neon` (`Orchestrator (Neon)`).
+- **Capabilities, thinking & quota**: support `low`/`medium`/`high`/`xhigh` thinking levels and `262144` `maxOutputTokens` for `gemini-4-neon*` and `gemini-pro-orchestrator-neon` (`contextWindow = 1048576`), and classify `gemini-4-neon*` + `gemini-pro-orchestrator-neon` under the main `gemini` quota group while keeping `gemini-pro-orchestrator-g1-pro` under `gemini_argon`.
+
 # Local change (2026-11-13; v0.5.116, local-only): Antigravity 2.31.2 + Gemini 4 Hydrogen & Orchestrator
 
 - **Antigravity fingerprint**: update `ANTIGRAVITY_IDE_VERSION` to `2.31.2` and `ANTIGRAVITY_IDE_USER_AGENT` to `antigravity/hub/2.31.2 (aidev_client; os_type=windows; arch=amd64; cl=1019359392)`.

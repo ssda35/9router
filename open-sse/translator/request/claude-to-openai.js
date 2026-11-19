@@ -30,13 +30,13 @@ export function claudeToOpenAIRequest(model, body, stream, credentials = null, o
     stream: stream
   };
 
-  // Max tokens (allow 128k ceiling for Claude models and 262144 for Gemini 4 Hydrogen so they aren't pre-clamped to 64k)
+  // Max tokens (allow 128k ceiling for Claude models and 262144 for Gemini 4 Neon/Hydrogen so they aren't pre-clamped to 64k)
   if (body.max_tokens) {
     const lowerModel = String(model || "").toLowerCase();
     let modelCeiling;
     if (lowerModel.includes("claude")) {
       modelCeiling = 128000;
-    } else if (lowerModel.includes("hydrogen")) {
+    } else if (lowerModel.includes("hydrogen") || lowerModel.includes("neon")) {
       modelCeiling = 262144;
     }
     result.max_tokens = adjustMaxTokens(body, modelCeiling);

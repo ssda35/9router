@@ -499,8 +499,11 @@ export const PATTERN_CAPABILITIES = [
 
   // ── Gemini (all 2.0+ multimodal + google_search grounding, 1M ctx) ─
   { pattern: "*gemini*image*",  caps: { vision: true, imageOutput: true, contextWindow: 1048576 } },
-  // Gemini 4 Hydrogen: LOW/MEDIUM/HIGH/XHIGH, 262144 maxOutputTokens per Antigravity 2.31.2 catalog.
+  // Gemini 4 Neon & Hydrogen: LOW/MEDIUM/HIGH/XHIGH, 262144 maxOutputTokens per Antigravity 2.33.0 catalog.
+  { pattern: "*gemini-4-neon*", caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 262144 } },
   { pattern: "*gemini-4-hydrogen*", caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 262144 } },
+  // Orchestrator (Neon): Neon-backed orchestrator model (LOW/MEDIUM/HIGH/XHIGH, 262144 maxOutputTokens).
+  { pattern: "*gemini-pro-orchestrator-neon*", caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 262144 } },
   // Orchestrator (Argon): Argon-backed orchestrator model (65536 maxOutputTokens).
   { pattern: "*gemini-pro-orchestrator*", caps: { vision: true, audioInput: true, videoInput: true, reasoning: true, search: true, thinkingFormat: "gemini-level", thinkingCanDisable: false, contextWindow: 1048576, maxOutput: 65536 } },
   // Gemini 4 (Argon): no "minimal" tier (400) and no thinkingBudget — LOW/MEDIUM/HIGH only, cannot disable.

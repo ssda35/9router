@@ -41,8 +41,10 @@ const CLAUDE_NO_XHIGH = ["none", "low", "medium", "high", "max"];
 
 // Model-name pattern overrides (glob, first match wins) — more precise than format default.
 const PATTERN_THINKING = [
-  // Gemini 4 Hydrogen supports XHIGH in addition to LOW/MEDIUM/HIGH; cannot disable thinking.
+  // Gemini 4 Neon & Hydrogen (plus Orchestrator Neon) support XHIGH in addition to LOW/MEDIUM/HIGH; cannot disable thinking.
+  { pattern: "*gemini-4-neon*", levels: ["low", "medium", "high", "xhigh"] },
   { pattern: "*gemini-4-hydrogen*", levels: ["low", "medium", "high", "xhigh"] },
+  { pattern: "*gemini-pro-orchestrator-neon*", levels: ["low", "medium", "high", "xhigh"] },
   { pattern: "*gemini-pro-orchestrator*", levels: ["low", "medium", "high"] },
   // Gemini 4 (Argon) rejects "minimal" with 400 — LOW is the floor; cannot disable thinking.
   { pattern: "*gemini-4*", levels: ["low", "medium", "high"] },

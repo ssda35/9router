@@ -392,7 +392,11 @@ describe("Antigravity quota-aware routing", () => {
       const orchestratorCreds = await getProviderCredentials("antigravity", null, "gemini-pro-orchestrator-g1-pro");
       expect(orchestratorCreds.connectionId).toBe("ag-other");
 
-      // Gemini 4 Hydrogen shares the regular Gemini bucket -> still routes to ag-argon
+      // Gemini 4 Neon, Orchestrator (Neon), and Hydrogen share the regular Gemini bucket -> still route to ag-argon
+      const neonCreds = await getProviderCredentials("antigravity", null, "gemini-4-neon-xhigh");
+      expect(neonCreds.connectionId).toBe("ag-argon");
+      const neonOrchCreds = await getProviderCredentials("antigravity", null, "gemini-pro-orchestrator-neon");
+      expect(neonOrchCreds.connectionId).toBe("ag-argon");
       const hydrogenCreds = await getProviderCredentials("antigravity", null, "gemini-4-hydrogen-xhigh");
       expect(hydrogenCreds.connectionId).toBe("ag-argon");
 

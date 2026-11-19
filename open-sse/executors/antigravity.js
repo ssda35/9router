@@ -463,7 +463,7 @@ export class AntigravityExecutor extends BaseExecutor {
     let maxOutputTokensCap = MAX_ANTIGRAVITY_OUTPUT_TOKENS;
     if (effectiveModel.includes("claude")) {
       maxOutputTokensCap = MAX_ANTIGRAVITY_CLAUDE_OUTPUT_TOKENS;
-    } else if (effectiveModel.includes("hydrogen")) {
+    } else if (effectiveModel.includes("hydrogen") || effectiveModel.includes("neon")) {
       maxOutputTokensCap = MAX_ANTIGRAVITY_HYDROGEN_OUTPUT_TOKENS;
     }
     const generationConfig = { ...(requestWithoutTools.generationConfig || {}) };

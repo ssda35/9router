@@ -169,6 +169,10 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
     if (!isFreeTier && data.models) {
       // Filter only recommended/important models (must match PROVIDER_MODELS ag ids)
       const importantModels = [
+        'gemini-4-neon-xhigh',
+        'gemini-4-neon-high',
+        'gemini-4-neon-medium',
+        'gemini-4-neon-low',
         'gemini-4-argon-high',
         'gemini-4-argon-medium',
         'gemini-4-argon-low',
@@ -176,6 +180,7 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
         'gemini-4-hydrogen-high',
         'gemini-4-hydrogen-medium',
         'gemini-4-hydrogen-low',
+        'gemini-pro-orchestrator-neon',
         'gemini-pro-orchestrator-g1-pro',
         'gemini-3.8-flash-high',
         'gemini-3.8-flash-medium',
@@ -247,8 +252,9 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
       // If every model in a family is locked/exhausted (remainingPercentage === 0)
       // until a future reset time, update the 5h session row (not the weekly row).
       const entries = Object.entries(quotas);
-      const argonModels = entries.filter(([k]) => k.startsWith("gemini-") && (k.includes("argon") || k.includes("orchestrator")));
-      const geminiModels = entries.filter(([k]) => k.startsWith("gemini-") && !k.includes("image") && !k.includes("argon") && !k.includes("orchestrator"));
+      const isArgonKey = (k) => k.includes("argon") || (k.includes("orchestrator") && !k.includes("neon") && !k.includes("hydrogen"));
+      const argonModels = entries.filter(([k]) => k.startsWith("gemini-") && isArgonKey(k));
+      const geminiModels = entries.filter(([k]) => k.startsWith("gemini-") && !k.includes("image") && !isArgonKey(k));
       const claudeModels = entries.filter(([k]) => k.startsWith("claude-"));
 
       if (weeklyQuotas.gemini_argon_session && argonModels.length > 0) {
